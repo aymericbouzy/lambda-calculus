@@ -114,7 +114,7 @@ rewrite IHt2.
 trivial.
 Qed.
 
-Proposition missing_variable_substitution : forall t:term, forall i:nat, closed i t -> match l with | nil => True | u :: r => (de_bruijn_substitution t u i) = t.
+Proposition missing_variable_substitution : forall t:term, forall u:term, forall i:nat, closed i t -> (de_bruijn_substitution t u i) = t.
 Proof.
 intro. intro.
 induction t.
@@ -175,5 +175,10 @@ rewrite nil_substitution.
 trivial.
 exact H.
 exact H.
+intro.
+induction t.
 intros.
+simpl.
+assert ((beq_nat n (S i)) \/ (beq_nat n i) \/ 
+
 
