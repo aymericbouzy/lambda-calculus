@@ -43,16 +43,6 @@ intros.
 exact H1.
 Qed.
 
-Fixpoint increase_var (s: term) (n: nat) (p: nat): term :=
-match s with
-| var x => (match nat_compare x p with
-  | Gt => var (x + n) 
-  | _ => var x
-  end)
-| lambda t => increase_var t (S n) (S p)
-| application t u => application (increase_var t n p) (increase_var u n p)
-end.
-
 Fixpoint eq_nat_branch (n1 n2: nat) (t1 t2: term): term :=
 match n1, n2 with
 | 0, 0 => t1
@@ -107,6 +97,136 @@ intros.
 simpl.
 apply IHn1.
 omega.
+Qed.
+
+Proposition eq_unconditionnal_branch : forall (n1 n2: nat), forall (t: term), eq_nat_branch n1 n2 t t = t.
+Proof.
+intro.
+induction n1.
+intro.
+induction n2.
+intros.
+simpl.
+trivial.
+intros.
+simpl.
+trivial.
+intro.
+induction n2.
+intros.
+simpl.
+trivial.
+intros.
+simpl.
+apply IHn1.
+Qed.
+
+Fixpoint gt_nat_branch (n1 n2: nat) (t1 t2: term): term :=
+match n1, n2 with
+| 0, 0 => t2
+| 0, _ => t2
+| _, 0 => t1
+| S(m1), S(m2) => gt_nat_branch m1 m2 t1 t2
+end.
+
+Proposition gt_branch_real_gt : forall n1 n2: nat, forall t1 t2: term, n1 > n2 -> gt_nat_branch n1 n2 t1 t2 = t1.
+Proof.
+intro.
+induction n1.
+intro.
+induction n2.
+intros.
+omega.
+intros.
+omega.
+intro.
+induction n2.
+intros.
+simpl.
+trivial.
+intros.
+simpl.
+apply IHn1.
+omega.
+Qed.
+
+Proposition leq_branch_real_leq : forall n1 n2: nat, forall t1 t2: term, n1 <= n2 -> gt_nat_branch n1 n2 t1 t2 = t2.
+Proof.
+intro.
+induction n1.
+intro.
+induction n2.
+intros.
+simpl.
+trivial.
+intros.
+simpl.
+trivial.
+intro.
+induction n2.
+intros.
+omega.
+intros.
+simpl.
+apply IHn1.
+omega.
+Qed.
+
+Proposition gt_unconditionnal_branch : forall (n1 n2: nat), forall (t: term), gt_nat_branch n1 n2 t t = t.
+Proof.
+intro.
+induction n1.
+intro.
+induction n2.
+intros.
+simpl.
+trivial.
+intros.
+simpl.
+trivial.
+intro.
+induction n2.
+intros.
+simpl.
+trivial.
+intros.
+simpl.
+apply IHn1.
+Qed.
+
+Fixpoint increase_var (s: term) (n: nat) (p: nat): term :=
+match s with
+| var x => gt_nat_branch p x (var x) (var (x + n))
+| lambda t => lambda (increase_var t n (S p))
+| application t u => application (increase_var t n p) (increase_var u n p)
+end.
+
+Proposition increase_is_id : forall (s: term), forall (n p:nat), closed p s -> increase_var s n p = s.
+Proof.
+intro.
+induction s.
+intros.
+simpl.
+apply gt_branch_real_gt.
+simpl in H.
+omega.
+intros.
+simpl.
+rewrite IHs.
+trivial.
+simpl in H.
+trivial.
+intros.
+simpl.
+rewrite IHs1.
+rewrite IHs2.
+trivial.
+case H.
+intros.
+trivial.
+case H.
+intros.
+trivial.
 Qed.
 
 Fixpoint de_bruijn_substitution (t: term) (s: term) (n: nat): term :=
@@ -266,7 +386,62 @@ rewrite H4.
 apply missing_variable_substitution.
 induction a.
 simpl.
+assert (closed i (var n0)).
+case H.
+intros.
+case H6.
+intros.
+trivial.
+case H5.
+induction n0.
+contradict H5.
+simpl.
+intro.
+simpl.
+omega.
+simpl.
+omega.
+intros.
+induction n0.
+simpl.
+omega.
+simpl.
+omega.
+case H.
+intros.
+case H6.
+intros.
+assert (closed (S i) a = closed i (lambda a)).
+simpl.
+trivial.
+simpl.
 
+rewrite H9.
+trivial.
+simpl.
+case H.
+intros.
+case H6.
+intros.
+assert ((closed i a1 /\ closed i a2) = closed i (application a1 a2)).
+simpl.
+trivial.
+rewrite H9.
+trivial.
+intros.
+assert (eq_nat_branch n (S i) (increase_var a (S i) 0)
+     (de_bruijn_aux n l (S (S i))) = de_bruijn_aux n l (S (S i))).
+apply neq_branch_real_neq.
+omega.
+rewrite H3.
+assert (eq_nat_branch n i (increase_var u i 0) (de_bruijn_aux n l (S (S i))) = de_bruijn_aux n l (S (S i))).
+apply neq_branch_real_neq.
+omega.
+rewrite H4.
+apply missing_variable_substitution.
 
-
+assert (eq_nat_branch n i (increase_var u i 0)
+  (eq_nat_branch n (S i) (increase_var a (S i) 0)
+     (de_bruijn_aux n l (S (S i)))) = de_bruijn_aux n l (S (S i))).
+apply neq_branch_real_neq.
 
