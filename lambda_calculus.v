@@ -61,6 +61,54 @@ match n1, n2 with
 | S(m1), S(m2) => eq_nat_branch m1 m2 t1 t2
 end.
 
+Proposition eq_branch_real_eq : forall n1 n2: nat, forall t1 t2: term, n1 = n2 -> eq_nat_branch n1 n2 t1 t2 = t1.
+Proof.
+intro.
+induction n1.
+intro.
+induction n2.
+intros.
+simpl.
+trivial.
+intros.
+contradict H.
+trivial.
+intro.
+induction n2.
+intros.
+contradict H.
+apply not_eq_sym.
+trivial.
+intros.
+simpl.
+apply IHn1.
+omega.
+Qed.
+
+Proposition neq_branch_real_neq : forall n1 n2: nat, forall t1 t2: term, n1 <> n2 -> eq_nat_branch n1 n2 t1 t2 = t2.
+Proof.
+intro.
+induction n1.
+intro.
+induction n2.
+intros.
+simpl.
+contradict H.
+trivial.
+intros.
+simpl.
+trivial.
+intro.
+induction n2.
+intros.
+simpl.
+trivial.
+intros.
+simpl.
+apply IHn1.
+omega.
+Qed.
+
 Fixpoint de_bruijn_substitution (t: term) (s: term) (n: nat): term :=
 match t with
 | var x => eq_nat_branch x n (increase_var s n 0) (var x)
@@ -73,6 +121,23 @@ match l with
   | nil => var x
   | s :: r => eq_nat_branch x n (increase_var s n 0) (de_bruijn_aux x r (S n))
 end.
+
+Proposition de_bruijn_aux_terminate : forall (l: list term), forall (x n: nat), x < n -> de_bruijn_aux x l n = var x.
+Proof.
+intro.
+induction l.
+intros.
+simpl.
+trivial.
+intros.
+simpl.
+assert (de_bruijn_aux x l (S n) = var x).
+apply IHl.
+omega.
+rewrite <- H0.
+apply neq_branch_real_neq.
+omega.
+Qed.
 
 Fixpoint de_bruijn_substitution_list (t: term) (l: list term) (n: nat): term :=
 match t with
@@ -110,8 +175,8 @@ apply H.
 assert (beq_nat n i = false).
 apply beq_nat_false_iff.
 omega.
-rewrite H1.
-trivial.
+apply neq_branch_real_neq.
+omega.
 intros.
 simpl.
 rewrite IHt.
@@ -164,6 +229,44 @@ intro.
 induction t.
 intros.
 simpl.
+assert ((n = i) \/ (n = S i) \/ (n <> i /\ n <> S i)).
+omega.
+case H0.
+intro.
+assert (eq_nat_branch n i (increase_var u i 0)
+  (eq_nat_branch n (S i) (increase_var a (S i) 0)
+     (de_bruijn_aux n l (S (S i)))) = increase_var u i 0).
+apply eq_branch_real_eq.
+exact H1.
+rewrite H2.
+assert (eq_nat_branch n (S i) (increase_var a (S i) 0)
+     (de_bruijn_aux n l (S (S i))) = (de_bruijn_aux n l (S (S i)))).
+apply neq_branch_real_neq.
+omega.
+rewrite H3.
+assert (de_bruijn_aux n l (S (S i)) = var n).
+apply de_bruijn_aux_terminate.
+omega.
+rewrite H4.
+simpl.
+apply eq_branch_real_eq.
+exact H1.
+intros.
+case H1.
+intros.
+assert (eq_nat_branch n (S i) (increase_var a (S i) 0)
+     (de_bruijn_aux n l (S (S i))) = increase_var a (S i) 0).
+apply eq_branch_real_eq.
+exact H2.
+rewrite H3.
+assert (eq_nat_branch n i (increase_var u i 0) (increase_var a (S i) 0) = increase_var a (S i) 0).
+apply neq_branch_real_neq.
+omega.
+rewrite H4.
+apply missing_variable_substitution.
+induction a.
+simpl.
+
 
 
 
