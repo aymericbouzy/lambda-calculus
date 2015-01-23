@@ -53,9 +53,17 @@ match s with
 | application t u => application (increase_var t n p) (increase_var u n p)
 end.
 
+Fixpoint eq_nat_branch (n1 n2: nat) (t1 t2: term): term :=
+match n1, n2 with
+| 0, 0 => t1
+| 0, _ => t2
+| _, 0 => t2
+| S(m1), S(m2) => eq_nat_branch m1 m2 t1 t2
+end.
+
 Fixpoint de_bruijn_substitution (t: term) (s: term) (n: nat): term :=
 match t with
-| var x => if (beq_nat x n) then increase_var s n 0 else var x
+| var x => eq_nat_branch x n (increase_var s n 0) (var x)
 | lambda t => lambda (de_bruijn_substitution t s (S n))
 | application t u => application (de_bruijn_substitution t s n) (de_bruijn_substitution u s n)
 end.
@@ -63,7 +71,7 @@ end.
 Fixpoint de_bruijn_aux (x: nat) (l: list term) (n: nat): term :=
 match l with
   | nil => var x
-  | s :: r => if (beq_nat x n) then increase_var s n 0 else de_bruijn_aux x r (S n)
+  | s :: r => eq_nat_branch x n (increase_var s n 0) (de_bruijn_aux x r (S n))
 end.
 
 Fixpoint de_bruijn_substitution_list (t: term) (l: list term) (n: nat): term :=
@@ -72,29 +80,6 @@ match t with
 | lambda t => lambda (de_bruijn_substitution_list t l (S n))
 | application t u => application (de_bruijn_substitution_list t l n) (de_bruijn_substitution_list u l n)
 end.
-
-
-Fixpoint eq_term (t1:term) (t2:term): Prop :=
-match t1, t2 with
-| var x1, var x2 => x1 = x2
-| lambda u1, lambda u2 => eq_term u1 u2
-| application r1 u1, application r2 u2 => (eq_term r1 r2) /\ (eq_term u1 u2)
-| _, _ => False
-end.
-
-Proposition eq_term_eq : forall t:term, eq_term t t.
-Proof.
-intro.
-induction t.
-simpl.
-trivial.
-simpl.
-exact IHt.
-simpl.
-split.
-exact IHt1.
-exact IHt2.
-Qed.
 
 Proposition nil_substitution : forall t:term, forall i:nat, (de_bruijn_substitution_list t nil i) = t.
 Proof.
@@ -179,6 +164,6 @@ intro.
 induction t.
 intros.
 simpl.
-assert ((beq_nat n (S i)) \/ (beq_nat n i) \/ 
+
 
 
