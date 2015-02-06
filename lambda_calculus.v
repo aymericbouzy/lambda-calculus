@@ -196,7 +196,7 @@ Qed.
 
 Fixpoint increase_var (s: term) (n: nat) (p: nat): term :=
 match s with
-| var x => gt_nat_branch p x (var x) (var (x + n))
+| var x => gt_nat_branch x p (var (x + n)) (var x)
 | lambda t => lambda (increase_var t n (S p))
 | application t u => application (increase_var t n p) (increase_var u n p)
 end.
@@ -207,7 +207,7 @@ intro.
 induction s.
 intros.
 simpl.
-apply gt_branch_real_gt.
+apply leq_branch_real_leq.
 simpl in H.
 omega.
 intros.
@@ -229,20 +229,20 @@ intros.
 trivial.
 Qed.
 
-Fixpoint de_bruijn_substitution (t: term) (s: term) (n: nat): term :=
+Fixpoint de_bruijn_substitution (t: term) (s: term) (n: nat) (p:nat): term :=
 match t with
-| var x => eq_nat_branch x n (increase_var s n 0) (var x)
-| lambda t => lambda (de_bruijn_substitution t s (S n))
-| application t u => application (de_bruijn_substitution t s n) (de_bruijn_substitution u s n)
+| var x => eq_nat_branch x (n + p) (increase_var s p 0) (var x)
+| lambda t => lambda (de_bruijn_substitution t s n (S p))
+| application t u => application (de_bruijn_substitution t s n p) (de_bruijn_substitution u s n p)
 end.
 
-Fixpoint de_bruijn_aux (x: nat) (l: list term) (n: nat): term :=
+Fixpoint de_bruijn_aux (x: nat) (l: list term) (n m p: nat): term :=
 match l with
   | nil => var x
-  | s :: r => eq_nat_branch x n (increase_var s n 0) (de_bruijn_aux x r (S n))
+  | s :: r => eq_nat_branch x (n + m + p) (increase_var s m 0) (de_bruijn_aux x r n m (S p))
 end.
 
-Proposition de_bruijn_aux_terminate : forall (l: list term), forall (x n: nat), x < n -> de_bruijn_aux x l n = var x.
+Proposition de_bruijn_aux_terminate : forall (l: list term), forall (x n m p: nat), x < n + m + p -> de_bruijn_aux x l n m p = var x.
 Proof.
 intro.
 induction l.
@@ -251,22 +251,21 @@ simpl.
 trivial.
 intros.
 simpl.
-assert (de_bruijn_aux x l (S n) = var x).
-apply IHl.
+rewrite IHl.
+rewrite neq_branch_real_neq.
+trivial.
 omega.
-rewrite <- H0.
-apply neq_branch_real_neq.
 omega.
 Qed.
 
-Fixpoint de_bruijn_substitution_list (t: term) (l: list term) (n: nat): term :=
+Fixpoint de_bruijn_substitution_list (t: term) (l: list term) (n p: nat): term :=
 match t with
-| var x => de_bruijn_aux x l n
-| lambda t => lambda (de_bruijn_substitution_list t l (S n))
-| application t u => application (de_bruijn_substitution_list t l n) (de_bruijn_substitution_list u l n)
+| var x => de_bruijn_aux x l n p 0
+| lambda t => lambda (de_bruijn_substitution_list t l n (S p))
+| application t u => application (de_bruijn_substitution_list t l n p) (de_bruijn_substitution_list u l n p)
 end.
 
-Proposition nil_substitution : forall t:term, forall i:nat, (de_bruijn_substitution_list t nil i) = t.
+Proposition nil_substitution : forall t:term, forall i p:nat, (de_bruijn_substitution_list t nil i p) = t.
 Proof.
 intro.
 induction t.
@@ -284,44 +283,145 @@ rewrite IHt2.
 trivial.
 Qed.
 
-Proposition missing_variable_substitution : forall t:term, forall u:term, forall i:nat, closed i t -> (de_bruijn_substitution t u i) = t.
+Proposition missing_variable_substitution : forall t:term, forall u:term, forall i p:nat, closed (i+p) t -> (de_bruijn_substitution t u i p) = t.
 Proof.
 intro. intro.
 induction t.
 intros.
 simpl.
-assert (n < i).
-apply H.
-assert (beq_nat n i = false).
-apply beq_nat_false_iff.
-omega.
-apply neq_branch_real_neq.
+rewrite neq_branch_real_neq.
+trivial.
+simpl in H.
 omega.
 intros.
 simpl.
 rewrite IHt.
 trivial.
-apply H.
+simpl in H.
+assert (i + S p = S (i + p)).
+omega.
+rewrite H0.
+trivial.
 intros.
 simpl.
-rewrite IHt1.
-rewrite IHt2.
+rewrite IHt1, IHt2.
 trivial.
+simpl in H.
 case H.
+intros.
 trivial.
+simpl in H.
 case H.
+intros.
 trivial.
 Qed.
 
-Proposition successive_subsitutions : forall l:list term, forall t:term, forall u:term, forall i: nat, closed_list i (u :: l) -> (de_bruijn_substitution (de_bruijn_substitution_list t l (S i)) u i) = (de_bruijn_substitution_list t (u :: l) i).
+Proposition successive_substitutions : forall l:list term, forall t:term, forall u:term, forall i p: nat, closed_list (i+p) l -> de_bruijn_substitution (de_bruijn_substitution_list t l (S i) p) u i p = de_bruijn_substitution_list t (u :: l) i p.
 Proof.
 intro.
 induction l.
-simpl.
 intro.
 induction t.
 intros.
 simpl.
+assert (i + p + 0 = i + p).
+omega.
+rewrite H0.
+trivial.
+intros.
+rewrite nil_substitution.
+assert (de_bruijn_substitution_list t (u :: nil) i (S p) = de_bruijn_substitution (de_bruijn_substitution_list t nil (S i) (S p)) u i
+        (S p)).
+rewrite IHt.
+trivial.
+simpl.
+trivial.
+simpl.
+rewrite H0.
+rewrite nil_substitution.
+trivial.
+intros.
+simpl.
+rewrite IHt1, IHt2.
+trivial.
+trivial.
+trivial.
+intro.
+induction t.
+intros.
+simpl.
+assert ((n = i + p) \/ (n = S i + p) \/ (n <> i  + p /\ n <> S i + p)).
+omega.
+case H0.
+intros.
+assert (eq_nat_branch n (i + p + 0) (increase_var u p 0)
+  (eq_nat_branch n (i + p + 1) (increase_var a p 0) (de_bruijn_aux n l i p 2)) = increase_var u p 0).
+apply eq_branch_real_eq.
+omega.
+rewrite H2.
+rewrite neq_branch_real_neq.
+rewrite de_bruijn_aux_terminate.
+simpl.
+apply eq_branch_real_eq.
+trivial.
+omega.
+omega.
+intros.
+case H1.
+intros.
+assert (eq_nat_branch n (S (i + p + 0)) (increase_var a p 0)
+     (de_bruijn_aux n l (S i) p 1) = increase_var a p 0).
+rewrite eq_branch_real_eq.
+trivial.
+omega.
+rewrite H3.
+assert (eq_nat_branch n (i + p + 1) (increase_var a p 0) (de_bruijn_aux n l i p 2) = increase_var a p 0).
+rewrite eq_branch_real_eq.
+trivial.
+omega.
+rewrite H4.
+rewrite neq_branch_real_neq.
+rewrite missing_variable_substitution.
+trivial.
+simpl in H.
+induction a.
+simpl.
+induction n0.
+rewrite leq_branch_real_leq.
+simpl.
+simpl in H.
+case H.
+intros.
+omega.
+omega.
+simpl.
+simpl in H.
+case H.
+
+
+
+
+
+simpl.
+apply closed_implication.
+rewrite nil_substitution in IHt.
+simpl in IHt.
+rewrite nil_subsititution
+rewrite missing_variable_substitution.
+simpl.
+assert ((n = i) \/ (n = S i) \/ (n <> i /\ n <> S i)).
+omega.
+rewrite increase_is_id.
+
+
+
+simpl in IHt. 
+
+rewrite IHt.
+assert (de_bruijn_substitution (de_bruijn_substitution_list t nil (S i)) u i = de_bruijn_substitution_list t nil (S i)).
+apply missing_variable_substitution.
+
+
 destruct (beq_nat n i);
 trivial.
 simpl.
@@ -384,6 +484,9 @@ apply neq_branch_real_neq.
 omega.
 rewrite H4.
 apply missing_variable_substitution.
+assert (increase_var a (S i) 0 = a).
+apply increase_is_id.
+simpl in H.
 induction a.
 simpl.
 assert (closed i (var n0)).
@@ -392,12 +495,26 @@ intros.
 case H6.
 intros.
 trivial.
+simpl in H5.
+
+induction n0.
+assert (gt_nat_branch 0 0 (var (0 + S i)) (var 0) = var 0).
+apply leq_branch_real_leq.
+trivial.
+omega.
+rewrite H6.
+trivial.
+assert (gt_nat_branch (S n0) 0 (var (S n0 + S i)) (var (S n0)) = var (S n0 + S i)).
+apply gt_branch_real_gt.
+omega.
+rewrite H6.
+simpl.
+
+
 case H5.
 induction n0.
-contradict H5.
 simpl.
-intro.
-simpl.
+apply closed_implication.
 omega.
 simpl.
 omega.
