@@ -201,6 +201,47 @@ match s with
 | application t u => application (increase_var t n p) (increase_var u n p)
 end.
 
+Proposition increase_var_keeps_close : forall (s: term), forall (i n p: nat), closed i s -> closed (i+n) (increase_var s n p).
+Proof.
+intro.
+induction s.
+intros.
+simpl.
+assert (n > p \/ n <= p).
+omega.
+case H0.
+intro.
+rewrite gt_branch_real_gt.
+simpl.
+simpl in H.
+omega.
+trivial.
+intro.
+rewrite leq_branch_real_leq.
+simpl.
+simpl in H.
+omega.
+trivial.
+intros.
+simpl.
+assert (S (i + n) = (S i) + n).
+omega.
+rewrite H0.
+apply IHs.
+simpl in H.
+trivial.
+intros.
+simpl.
+simpl in H.
+case H.
+intros.
+split.
+apply IHs1.
+trivial.
+apply IHs2.
+trivial.
+Qed.
+
 Proposition increase_is_id : forall (s: term), forall (n p:nat), closed p s -> increase_var s n p = s.
 Proof.
 intro.
@@ -316,7 +357,7 @@ intros.
 trivial.
 Qed.
 
-Proposition successive_substitutions : forall l:list term, forall t:term, forall u:term, forall i p: nat, closed_list (i+p) l -> de_bruijn_substitution (de_bruijn_substitution_list t l (S i) p) u i p = de_bruijn_substitution_list t (u :: l) i p.
+Proposition successive_substitutions : forall l:list term, forall t:term, forall u:term, forall i p: nat, closed_list i l -> de_bruijn_substitution (de_bruijn_substitution_list t l (S i) p) u i p = de_bruijn_substitution_list t (u :: l) i p.
 Proof.
 intro.
 induction l.
@@ -384,6 +425,11 @@ rewrite neq_branch_real_neq.
 rewrite missing_variable_substitution.
 trivial.
 simpl in H.
+
+
+
+
+
 induction a.
 simpl.
 induction n0.
@@ -397,7 +443,9 @@ omega.
 simpl.
 simpl in H.
 case H.
-
+intros.
+omega.
+simpl.
 
 
 
