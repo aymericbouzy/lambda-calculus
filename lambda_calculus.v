@@ -327,14 +327,14 @@ trivial.
 trivial.
 Qed.
 
-Fixpoint de_bruijn_substitution_list (t: term) (l: list term) (n p: nat): term :=
+Fixpoint de_bruijn_substitution_list (l: list term) (n p: nat) (t: term) : term :=
 match t with
 | var x => de_bruijn_aux x l p n
-| lambda t => lambda (de_bruijn_substitution_list t l n (S p))
-| application t u => application (de_bruijn_substitution_list t l n p) (de_bruijn_substitution_list u l n p)
+| lambda t => lambda (de_bruijn_substitution_list l n (S p) t)
+| application t u => application (de_bruijn_substitution_list l n p t) (de_bruijn_substitution_list l n p u)
 end.
 
-Proposition nil_substitution : forall t:term, forall i p:nat, (de_bruijn_substitution_list t nil i p) = t.
+Proposition nil_substitution : forall t:term, forall i p:nat, (de_bruijn_substitution_list nil i p t) = t.
 Proof.
 intro.
 induction t.
@@ -413,7 +413,7 @@ trivial.
 Qed.
 *)
 
-Proposition successive_substitutions : forall l:list term, forall t:term, forall u:term, forall i p: nat, closed_list i l -> de_bruijn_substitution (de_bruijn_substitution_list t l (S i) p) u (p + i) = de_bruijn_substitution_list t (u :: l) i p.
+Proposition successive_substitutions : forall l:list term, forall t:term, forall u:term, forall i p: nat, closed_list i l -> de_bruijn_substitution (de_bruijn_substitution_list l (S i) p t) u (p + i)= de_bruijn_substitution_list (u :: l) i p t.
 Proof.
 (* intro.
 induction l.
@@ -528,18 +528,7 @@ Inductive stack: Set:=
 Inductive krivine_state: Set :=
 | Krivine_state: list instruction -> environment -> stack -> krivine_state.
 
-Inductive one_step_krivine: krivine_state -> krivine_state -> Prop :=
-| access_0: forall c c0 : list instruction, forall e e0: environment, forall s: stack, 
-  one_step_krivine (Krivine_state ((Access 0) :: c) (Env c0 e0 e) s) (Krivine_state c0 e0 s)
-| access_Sn : forall n: nat, forall c c0: list instruction, forall e e0: environment, forall s: stack,
-  one_step_krivine (Krivine_state ((Access (S n)) :: c) (Env c0 e0 e) s) (Krivine_state ((Access n) :: c) e s)
-| push : forall c' c: list instruction, forall e: environment, forall s: stack,
-  one_step_krivine (Krivine_state ((Push c') :: c) e s) (Krivine_state c e (St c' e s))
-| grab : forall c c0 : list instruction, forall e e0: environment, forall s: stack, 
-  one_step_krivine (Krivine_state (Grab :: c) e (St c0 e0 s)) (Krivine_state c (Env c0 e0 e) s)
-.
-
-Fixpoint one_step_krivine_f (state: krivine_state) : option krivine_state :=
+Fixpoint one_step_krivine (state: krivine_state) : option krivine_state :=
 match state with
 | Krivine_state ((Access 0) :: c) (Env c0 e0 e) s => Some (Krivine_state c0 e0 s)
 | Krivine_state ((Access (S n)) :: c) (Env c0 e0 e) s => Some (Krivine_state ((Access n) :: c) e s)
@@ -547,4 +536,31 @@ match state with
 | Krivine_state (Grab :: c) e (St c0 e0 s) => Some (Krivine_state c (Env c0 e0 e) s)
 | _ => None
 end.
+
+Fixpoint compilation (t: term) : list instruction :=
+match t with
+| var x => (Access x) :: nil
+| lambda t => Grab :: (compilation t)
+| application t u => (Push (compilation u)) :: (compilation t)
+end.
+
+Fixpoint instruction_translation (c: list instruction) : term :=
+match c with
+| nil => var 42
+| (Access n) :: c0 => var n
+| (Push c1) :: c0 => application (instruction_translation c0) (instruction_translation c1)
+| Grab :: c0 => lambda (instruction_translation c0)
+end.
+
+Fixpoint environment_translation (e: environment) : list term :=
+match e with
+| Nil_env => nil
+| Env c0 e0 e => (state_translation (Krivine_state c0 e0 Nil_stack)) :: (environment_translation e)
+end
+with state_translation (state: krivine_state) : term :=
+match state with
+| Krivine_state c e Nil_stack => de_bruijn_substitution_list (environment_translation e) 0 0 (instruction_translation c)
+| Krivine_state c e (St c0 e0 s) => application (state_translation (Krivine_state c e Nil_stack)) (state_translation (Krivine_state c0 e0 s))
+end. 
+
 
