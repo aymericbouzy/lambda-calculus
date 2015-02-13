@@ -539,3 +539,12 @@ Inductive one_step_krivine: krivine_state -> krivine_state -> Prop :=
   one_step_krivine (Krivine_state (Grab :: c) e (St c0 e0 s)) (Krivine_state c (Env c0 e0 e) s)
 .
 
+Fixpoint one_step_krivine_f (state: krivine_state) : option krivine_state :=
+match state with
+| Krivine_state ((Access 0) :: c) (Env c0 e0 e) s => Some (Krivine_state c0 e0 s)
+| Krivine_state ((Access (S n)) :: c) (Env c0 e0 e) s => Some (Krivine_state ((Access n) :: c) e s)
+| Krivine_state ((Push c') :: c) e s => Some (Krivine_state c e (St c' e s))
+| Krivine_state (Grab :: c) e (St c0 e0 s) => Some (Krivine_state c (Env c0 e0 e) s)
+| _, _, _ => None
+end.
+
