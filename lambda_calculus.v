@@ -545,6 +545,6 @@ match state with
 | Krivine_state ((Access (S n)) :: c) (Env c0 e0 e) s => Some (Krivine_state ((Access n) :: c) e s)
 | Krivine_state ((Push c') :: c) e s => Some (Krivine_state c e (St c' e s))
 | Krivine_state (Grab :: c) e (St c0 e0 s) => Some (Krivine_state c (Env c0 e0 e) s)
-| _, _, _ => None
+| _ => None
 end.
 
