@@ -512,44 +512,47 @@ Qed.
 Inductive instruction: Set := 
 | Access: nat -> instruction
 | Grab: instruction
-| Push: list instruction -> instruction
+| Push: list_instruction -> instruction
+with list_instruction: Set :=
+| Nil_block: list_instruction
+| Block: instruction -> list_instruction -> list_instruction
 .
 
 Inductive environment: Set:=
 | Nil_env: environment
-| Env: list instruction -> environment -> environment -> environment
+| Env: list_instruction -> environment -> environment -> environment
 .
 
 Inductive stack: Set:=
 | Nil_stack: stack
-| St: list instruction -> environment -> stack -> stack
+| St: list_instruction -> environment -> stack -> stack
 .
 
 Inductive krivine_state: Set :=
-| Krivine_state: list instruction -> environment -> stack -> krivine_state.
+| Krivine_state: list_instruction -> environment -> stack -> krivine_state.
 
 Fixpoint one_step_krivine (state: krivine_state) : option krivine_state :=
 match state with
-| Krivine_state ((Access 0) :: c) (Env c0 e0 e) s => Some (Krivine_state c0 e0 s)
-| Krivine_state ((Access (S n)) :: c) (Env c0 e0 e) s => Some (Krivine_state ((Access n) :: c) e s)
-| Krivine_state ((Push c') :: c) e s => Some (Krivine_state c e (St c' e s))
-| Krivine_state (Grab :: c) e (St c0 e0 s) => Some (Krivine_state c (Env c0 e0 e) s)
+| Krivine_state (Block (Access 0) c) (Env c0 e0 e) s => Some (Krivine_state c0 e0 s)
+| Krivine_state (Block (Access (S n)) c) (Env c0 e0 e) s => Some (Krivine_state (Block (Access n) c) e s)
+| Krivine_state (Block (Push c') c) e s => Some (Krivine_state c e (St c' e s))
+| Krivine_state (Block Grab c) e (St c0 e0 s) => Some (Krivine_state c (Env c0 e0 e) s)
 | _ => None
 end.
 
-Fixpoint compilation (t: term) : list instruction :=
+Fixpoint compilation (t: term) : list_instruction :=
 match t with
-| var x => (Access x) :: nil
-| lambda t => Grab :: (compilation t)
-| application t u => (Push (compilation u)) :: (compilation t)
+| var x => Block (Access x) Nil_block
+| lambda t => Block Grab (compilation t)
+| application t u => Block (Push (compilation u)) (compilation t)
 end.
 
-Fixpoint instruction_translation (c: list instruction) : term :=
+Fixpoint instruction_translation (c: list_instruction) {struct c} : term :=
 match c with
-| nil => var 42
-| (Access n) :: c0 => var n
-| (Push c1) :: c0 => application (instruction_translation c0) (instruction_translation c1)
-| Grab :: c0 => lambda (instruction_translation c0)
+| Nil_block => var 42
+| Block (Access n) c => var n
+| Block (Push c1) c0 => application (instruction_translation c0) (instruction_translation c1)
+| Block Grab c => lambda (instruction_translation c)
 end.
 
 Fixpoint environment_translation (e: environment) : list term :=
