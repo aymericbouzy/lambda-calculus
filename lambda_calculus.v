@@ -599,13 +599,6 @@ match s with
 | St c0 e0 s => correct_state c0 e0 s
 end.
 
-Lemma lemma_1: forall (c1 c2: list_instruction), forall (e1 e2: environment), correct_state (Block (Access 0) c1) (Env c2 e1 e2) Nil_stack -> correct_env e1.
-Proof.
-intros.
-simpl in H.
-elim H. intros. elim H0. intros. elim H2. intros. trivial.
-Qed.
-
 Theorem krivine_keeps_correct: forall (s2: stack), forall (c1: list_instruction), forall (e1: environment), forall (s1: stack), forall (c2: list_instruction), forall (e2: environment), correct_state c1 e1 s1 -> one_step_krivine (c1, e1, s1) = Some (c2, e2, s2) -> correct_state c2 e2 s2.
 Proof.
 intro.
@@ -665,7 +658,26 @@ elim H. intros. elim H1. intros. elim H6. intros. omega.
 trivial. 
 intros.
 split.
-
+split.
+simpl in H.
+inversion H0.
+split.
+trivial.
+simpl in H.
+inversion H0.
+trivial.
+intro. intro. induction s1.
+intros.
+inversion H0.
+intros.
+inversion H0.
+rewrite H3.
+apply (IHc1 e1 (St l e s1)).
+simpl.
+simpl in H.
+split. split. elim H. intros. elim H1. intros. trivial.
+split. trivial.
+elim H. intros. elim H1. intros. elim H7. intros.
 
 
 
