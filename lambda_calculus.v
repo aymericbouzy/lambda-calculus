@@ -565,4 +565,111 @@ match c, e, s with
 | c, e, (St c0 e0 s) => application (de_bruijn_substitution_list (environment_translation e) 0 0 (instruction_translation c)) (state_translation c0 e0 s)
 end.
 
+Theorem translate_inverse_of_compile: forall (t: term), instruction_translation (compilation t) = t.
+Proof.
+intro.
+induction t.
+simpl.
+trivial.
+simpl.
+rewrite IHt.
+trivial.
+simpl.
+rewrite IHt1.
+rewrite IHt2.
+trivial.
+Qed.
+
+Fixpoint env_size (e: environment) : nat :=
+match e with
+| Nil_env => 0
+| Env _ _ e => S (env_size e)
+end.
+
+Fixpoint correct_env (e: environment) : Prop :=
+match e with
+| Nil_env => True
+| Env c0 e0 e1 => correct_env e0 /\ correct_env e1 /\ closed (env_size e0) (instruction_translation c0)
+end.
+
+Fixpoint correct_state (c: list_instruction) (e: environment) (s: stack) : Prop :=
+correct_env (Env c e Nil_env) /\ 
+match s with
+| Nil_stack => True
+| St c0 e0 s => correct_state c0 e0 s
+end.
+
+Lemma lemma_1: forall (c1 c2: list_instruction), forall (e1 e2: environment), correct_state (Block (Access 0) c1) (Env c2 e1 e2) Nil_stack -> correct_env e1.
+Proof.
+intros.
+simpl in H.
+elim H. intros. elim H0. intros. elim H2. intros. trivial.
+Qed.
+
+Theorem krivine_keeps_correct: forall (s2: stack), forall (c1: list_instruction), forall (e1: environment), forall (s1: stack), forall (c2: list_instruction), forall (e2: environment), correct_state c1 e1 s1 -> one_step_krivine (c1, e1, s1) = Some (c2, e2, s2) -> correct_state c2 e2 s2.
+Proof.
+intro.
+induction s2.
+intro.
+induction c1.
+intros.
+simpl in H0.
+inversion H0.
+induction i.
+simpl.
+intro.
+induction e1.
+intros.
+induction n; inversion H0.
+induction n.
+intro.
+induction s1.
+intros.
+split.
+split.
+inversion H0.
+rewrite <- H3.
+simpl in H.
+elim H. intros. elim H1. intros. elim H5. intros.
+trivial.
+split.
+trivial.
+simpl in H.
+inversion H0.
+rewrite <- H3.
+rewrite <- H2.
+elim H. intros. elim H1. intros. elim H5. intros. elim H8. intros. trivial.
+trivial.
+intros.
+split.
+split.
+inversion H0.
+split.
+trivial.
+simpl in H.
+elim H. intros. elim H1. intros. elim H3. intros. elim H6. intros.
+inversion H0. trivial.
+induction s1.
+intros.
+split.
+split.
+simpl in H.
+inversion H0. rewrite <- H3.
+elim H. intros. elim H1. intros. elim H5. intros. elim H8. intros. trivial.
+split. trivial.
+simpl in H.
+inversion H0.
+rewrite <- H3.
+simpl.
+elim H. intros. elim H1. intros. elim H6. intros. omega.
+trivial. 
+intros.
+split.
+
+
+
+
+
+Qed.
+
 
