@@ -528,15 +528,12 @@ Inductive stack: Set:=
 | St: list_instruction -> environment -> stack -> stack
 .
 
-Inductive krivine_state: Set :=
-| Krivine_state: list_instruction -> environment -> stack -> krivine_state.
-
-Fixpoint one_step_krivine (state: krivine_state) : option krivine_state :=
+Fixpoint one_step_krivine (state: list_instruction*environment*stack) : option (list_instruction*environment*stack) :=
 match state with
-| Krivine_state (Block (Access 0) c) (Env c0 e0 e) s => Some (Krivine_state c0 e0 s)
-| Krivine_state (Block (Access (S n)) c) (Env c0 e0 e) s => Some (Krivine_state (Block (Access n) c) e s)
-| Krivine_state (Block (Push c') c) e s => Some (Krivine_state c e (St c' e s))
-| Krivine_state (Block Grab c) e (St c0 e0 s) => Some (Krivine_state c (Env c0 e0 e) s)
+| ((Block (Access 0) c), (Env c0 e0 e), s) => Some (c0, e0, s)
+| ((Block (Access (S n)) c), (Env c0 e0 e), s) => Some ((Block (Access n) c), e, s)
+| ((Block (Push c') c), e, s) => Some (c, e, (St c' e s))
+| ((Block Grab c), e, (St c0 e0 s)) => Some (c, (Env c0 e0 e), s)
 | _ => None
 end.
 
@@ -555,15 +552,17 @@ match c with
 | Block Grab c => lambda (instruction_translation c)
 end.
 
-Fixpoint environment_translation (e: environment) : list term :=
+Fixpoint environment_translation (e: environment) {struct e} : list term :=
 match e with
 | Nil_env => nil
-| Env c0 e0 e => (state_translation (Krivine_state c0 e0 Nil_stack)) :: (environment_translation e)
+| Env c0 e0 e => (de_bruijn_substitution_list (environment_translation e0) 0 0 (instruction_translation c0)) :: (environment_translation e)
 end
-with state_translation (state: krivine_state) : term :=
-match state with
-| Krivine_state c e Nil_stack => de_bruijn_substitution_list (environment_translation e) 0 0 (instruction_translation c)
-| Krivine_state c e (St c0 e0 s) => application (state_translation (Krivine_state c e Nil_stack)) (state_translation (Krivine_state c0 e0 s))
-end. 
+.
+
+Fixpoint state_translation (c: list_instruction) (e: environment) (s: stack) : term :=
+match c, e, s with
+| c, e, Nil_stack => de_bruijn_substitution_list (environment_translation e) 0 0 (instruction_translation c)
+| c, e, (St c0 e0 s) => application (de_bruijn_substitution_list (environment_translation e) 0 0 (instruction_translation c)) (state_translation c0 e0 s)
+end.
 
 
