@@ -589,7 +589,7 @@ end.
 Fixpoint correct_env (e: environment) : Prop :=
 match e with
 | Nil_env => True
-| Env c0 e0 e1 => correct_env e0 /\ correct_env e1 /\ closed (env_size e0) (instruction_translation c0)
+| Env c0 e0 e1 => correct_env e0 /\ correct_env e1 /\ closed (S (env_size e0)) (instruction_translation c0)
 end.
 
 Fixpoint correct_state (c: list_instruction) (e: environment) (s: stack) : Prop :=
@@ -672,15 +672,55 @@ inversion H0.
 intros.
 inversion H0.
 rewrite H3.
-apply (IHc1 e1 (St l e s1)).
 simpl.
-simpl in H.
-split. split. elim H. intros. elim H1. intros. trivial.
-split. trivial.
-elim H. intros. elim H1. intros. elim H7. intros.
+rewrite <- H3. simpl. simpl in H. elim H. intros. elim H1. intros. elim H7. intros. rewrite H4 in H5. simpl in H5. elim H5. intros. elim H10. intros. elim H13. intros. 
+split. split. split. trivial. split. trivial. trivial. split. trivial. rewrite <- H2. trivial. trivial. 
+intros. inversion H0.
+intro.
+induction c1.
+intros. inversion H0.
+induction i. induction n. intro. induction e1. intros. inversion H0.
+intros. inversion H0.
+rewrite H4 in H. simpl in H. inversion H. inversion H1. inversion H6. simpl.
+split. split. rewrite <- H3. trivial. split. trivial. inversion H9. rewrite <- H2. rewrite <- H3. trivial.
+trivial.
+intro. induction e1.
+intros. inversion H0.
+intros. inversion H0.
+rewrite H4 in H. simpl in H. inversion H. inversion H1. inversion H6. simpl.
+split. split. rewrite <- H3. inversion H9. trivial. split. trivial. inversion H7. rewrite <- H3. omega. trivial.
+assert (forall (s1 : stack) (e1 : environment) (c2 : list_instruction)
+  (e2 : environment),
+correct_state (Block Grab c1) e1 s1 ->
+one_step_krivine (Block Grab c1, e1, s1) = Some (c2, e2, St l e s2) ->
+correct_state c2 e2 (St l e s2)).
+intro. induction s1.
+intros. inversion H0.
+intros. inversion H0.
+simpl in H. simpl. inversion H. inversion H1. inversion H7. rewrite H4 in H5. simpl in H5. inversion H5. inversion H10. inversion H13.
+split. split. split. trivial. split. trivial. trivial. split. trivial. rewrite <- H2. trivial. trivial.
+intros.
+apply (H s1 e1 c2 e2).
+trivial. trivial.
+assert (forall (s1 : stack) (e1 : environment) (c2 : list_instruction)
+  (e2 : environment),
+correct_state (Block (Push l0) c1) e1 s1 ->
+one_step_krivine (Block (Push l0) c1, e1, s1) = Some (c2, e2, St l e s2) ->
+correct_state c2 e2 (St l e s2)).
+intro. induction s1.
+intros. inversion H0.
+rewrite <- H5. rewrite <- H3. rewrite <- H2.
+simpl. simpl in H. inversion H. inversion H1. inversion H9. inversion H11.
+split. split. trivial. split. trivial. trivial. split. split. trivial. split. trivial. rewrite <- H4. trivial. trivial.
+intros. inversion H0.
+rewrite <- H5. rewrite <- H3. rewrite <- H2. rewrite <- H4.
+simpl. simpl in H. inversion H. inversion H1. inversion H9. inversion H11. 
+split. split. trivial. split. trivial. trivial. split. split. trivial. split. trivial. trivial. trivial.
+intros. apply (H s1 e1 c2 e2). trivial. trivial.
+Qed.
 
-
-
+Theorem krivine_step_is_reduction: forall (c1 c2: list_instruction) (e1 e2: environment) (s1 s2: stack), one_step_krivine (c1, e1, s1) = Some (c2, e2, s2) -> reduce_any (state_translation c2 e2 s2) (state_translation c1 e1 s1).
+Proof.
 
 Qed.
 
