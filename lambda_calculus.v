@@ -304,13 +304,9 @@ Proof.
 intro. induction l.
 intros. simpl. omega.
 intros. simpl. assert (x = p \/ x <> p). omega. case H0.
-intro. rewrite eq_branch_real_eq. simpl in IHl.
-
- induction a.
-simpl. induction n. simpl. omega. simpl. inversion H. inversion H2. omega. omega.
-simpl.
-
-
+intro. rewrite eq_branch_real_eq. simpl in IHl. assert (S (i + x) = (S i) + p + 0). omega. rewrite H2.
+apply increase_var_keeps_close. simpl. apply closed_implication. inversion H. assert (i + 0 = i). omega. rewrite H5. trivial. trivial.
+intro. rewrite neq_branch_real_neq. simpl. apply IHl. inversion H. trivial. trivial.
 Qed.
 
 Fixpoint de_bruijn_substitution_list (l: list term) (p: nat) (t: term) : term :=
