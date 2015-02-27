@@ -196,36 +196,29 @@ Qed.
 
 Fixpoint increase_var (s: term) (n: nat) (p: nat): term :=
 match s with
-| var x => var (x + n)
+| var x => gt_nat_branch x p (var (x + n)) (var x)
 | lambda t => lambda (increase_var t n (S p))
 | application t u => application (increase_var t n p) (increase_var u n p)
 end.
 
-Proposition increase_var_keeps_close : forall (s: term), forall (i n p: nat), closed i s -> closed (i+n) (increase_var s n p).
+Proposition increase_var_keeps_close : forall (s: term), forall (n p: nat), closed p s -> closed (n+p) (increase_var s n p).
 Proof.
 intro.
 induction s.
 intros.
 simpl.
 simpl in H.
+rewrite leq_branch_real_leq.
+simpl.
+omega.
 omega.
 intros.
 simpl.
-assert (S (i + n) = (S i) + n).
-omega.
-rewrite H0.
-apply IHs.
-simpl in H.
-trivial.
-intros.
-simpl.
-simpl in H.
-inversion H.
-split.
-apply IHs1.
-trivial.
-apply IHs2.
-trivial.
+assert (S (n + p) = n + (S p)). omega. rewrite H0.
+apply (IHs n (S p)). simpl in H. trivial.
+intros. simpl. inversion H. split.
+apply IHs1. trivial.
+apply IHs2. trivial.
 Qed.
 (*
 Proposition increase_is_id : forall (s: term), forall (n p:nat), closed p s -> increase_var s n p = s.
@@ -260,7 +253,7 @@ Proposition null_increase : forall (s: term), forall (p: nat), increase_var s 0 
 Proof.
 intro. induction s.
 intro.
-simpl. assert (n + 0 = n). omega. rewrite H. trivial.
+simpl. assert (n + 0 = n). omega. rewrite H. rewrite gt_unconditionnal_branch. trivial.
 intro. simpl. rewrite IHs. trivial.
 intro. simpl. rewrite IHs1. rewrite IHs2. trivial.
 Qed.
@@ -363,6 +356,15 @@ simpl. intros. inversion H. inversion H1.
 assert (n = p \/ n = S p \/ n > S p \/ n < p). omega. case H4.
 intro. rewrite (eq_branch_real_eq n p).
 rewrite neq_branch_real_neq. rewrite de_bruijn_aux_terminate.
+simpl. rewrite eq_branch_real_eq. trivial. trivial. omega. omega. trivial.
+intro. case H5.
+intro.
+rewrite (eq_branch_real_eq n (S p)). rewrite neq_branch_real_neq. 
+rewrite missing_variable_substitution. trivial. 
+admit.
+omega. omega.
+intro. rewrite neq_branch_real_neq. rewrite neq_branch_real_neq.
+rewrite missing_variable_substitution. trivial. 
 
 Qed.
 
