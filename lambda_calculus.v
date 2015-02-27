@@ -270,6 +270,13 @@ intros.
 trivial.
 Qed.
 
+Proposition null_increase : forall (s: term), forall (p: nat), increase_var s 0 p = s.
+Proof.
+intro. induction s.
+intro.
+simpl. assert (n + 0 = n).
+Qed.
+
 Fixpoint de_bruijn_substitution (t: term) (s: term) (p:nat): term :=
 match t with
 | var x => eq_nat_branch x p (increase_var s p 0) (var x)
@@ -721,7 +728,10 @@ Qed.
 
 Theorem krivine_step_is_reduction: forall (c1 c2: list_instruction) (e1 e2: environment) (s1 s2: stack), Some (c2, e2, s2) = one_step_krivine (c1, e1, s1) -> reduce_one (state_translation c1 e1 s1) (state_translation c2 e2 s2).
 Proof.
-admit.
+intros.
+induction c1. inversion H.
+induction i. induction n. induction e1. inversion H.
+inversion H. induction s1. simpl. induction e1_1. simpl. rewrite nil_substitution. simpl.
 Qed.
 
 Inductive krivine_steps: list_instruction -> list_instruction -> environment ->
@@ -737,17 +747,16 @@ rewrite H. rewrite H0. rewrite H1. apply red_identity. trivial.
 apply (red_trans _ (state_translation c2 e2 s2)). apply krivine_step_is_reduction. trivial. trivial.
 Qed.
 
-Theorem compilation_correction : forall (t: term) (c: list_instruction) (e: environment) (s: stack), krivine_steps (compilation t) c Nil_env e Nil_stack s -> reduce_any t (state_translation c e s).
+Theorem krivine_steps_keep_correct : forall (c1 c2: list_instruction) (e1 e2: environment) (s1 s2: stack), krivine_steps c1 c2 e1 e2 s1 s2 -> correct_state c1 e1 s1 -> correct_state c2 e2 s2.
+Proof.
+intros. induction H. rewrite H in H0. rewrite H1 in H0. rewrite H2 in H0. trivial.
+apply IHkrivine_steps.
+apply (krivine_keeps_correct s2 c1 e1 s1 c2 e2). trivial. rewrite H. trivial.
+Qed.
+
+Theorem correct_after_compilation_and_krivine : forall (t: term) (c: list_instruction) (e: environment) (s: stack), closed 1 t -> krivine_steps (compilation t) c Nil_env e Nil_stack s -> correct_state c e s.
 Proof.
 intros.
-
-intros.
-assert ((e = Nil_env /\ s = Nil_stack /\ c = compilation t) \/ (exists (c1: list_instruction) (e1: environment) (s1: stack), Some (c1, e1, s1) = one_step_krivine (compilation t, Nil_env, Nil_stack) /\ krivine_steps c1 c e1 e s1 s)).
-admit.
-case H0.
-intro. inversion H1. inversion H3. rewrite H2. rewrite H4. rewrite H5. simpl. rewrite nil_substitution. rewrite translate_inverse_of_compile. apply red_identity. trivial.
-intros. induction t. induction n. inversion H1. inversion H2. inversion H3.
-
-
-
-Abort.
+apply (krivine_steps_keep_correct (compilation t) c Nil_env e Nil_stack s). trivial.
+simpl. split. split. trivial. split. trivial. rewrite translate_inverse_of_compile. trivial. trivial.
+Qed.
