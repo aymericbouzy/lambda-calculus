@@ -274,7 +274,9 @@ Proposition null_increase : forall (s: term), forall (p: nat), increase_var s 0 
 Proof.
 intro. induction s.
 intro.
-simpl. assert (n + 0 = n).
+simpl. assert (n + 0 = n). omega. rewrite H. apply gt_unconditionnal_branch.
+intro. simpl. rewrite IHs. trivial.
+intro. simpl. rewrite IHs1. rewrite IHs2. trivial.
 Qed.
 
 Fixpoint de_bruijn_substitution (t: term) (s: term) (p:nat): term :=
@@ -732,6 +734,9 @@ intros.
 induction c1. inversion H.
 induction i. induction n. induction e1. inversion H.
 inversion H. induction s1. simpl. induction e1_1. simpl. rewrite nil_substitution. simpl.
+
+
+
 Qed.
 
 Inductive krivine_steps: list_instruction -> list_instruction -> environment ->
