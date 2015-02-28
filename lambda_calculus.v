@@ -1,6 +1,5 @@
 Require Import Arith.
 Require Import List.
-Require Import Compare_dec.
 Require Import Omega.
 
 Inductive term: Set :=
@@ -24,23 +23,11 @@ end.
 Proposition closed_implication : forall t:term, forall n:nat, (closed n t) -> (closed (S n) t).
 Proof.
 induction t.
-simpl.
-apply le_S.
-intro.
-simpl.
-apply IHt.
-intro.
-simpl.
-intro.
-split.
-apply IHt1.
-case H.
-intros.
-exact H0.
-apply IHt2.
-case H.
-intros.
-exact H1.
+simpl. intros. omega. 
+intros. simpl. simpl in H. apply IHt. trivial.
+intros. simpl. inversion H. split.
+apply IHt1. trivial.
+apply IHt2. trivial.
 Qed.
 
 Proposition closed_list_implication : forall (l: list term) (n: nat), closed_list n l -> closed_list (S n) l.
@@ -220,55 +207,6 @@ intros. simpl. assert (S (i + n + p) = i + n + S p). omega. rewrite H0. apply IH
 intros. simpl. inversion H. split. apply IHa1. trivial. apply IHa2. trivial.
 Qed.
 
-(*
-Proposition increase_var_keeps_close : forall (s: term), forall (n p: nat), closed p s -> closed (n+p) (increase_var s n p).
-Proof.
-intro.
-induction s.
-intros.
-simpl.
-simpl in H.
-rewrite gt_branch_real_gt.
-simpl.
-omega.
-omega.
-intros.
-simpl.
-assert (S (n + p) = n + (S p)). omega. rewrite H0.
-apply (IHs n (S p)). simpl in H. trivial.
-intros. simpl. inversion H. split.
-apply IHs1. trivial.
-apply IHs2. trivial.
-Qed.
-
-Proposition increase_is_id : forall (s: term), forall (n p:nat), closed p s -> increase_var s n p = s.
-Proof.
-intro.
-induction s.
-intros.
-simpl.
-apply gt_branch_real_gt.
-simpl in H.
-omega.
-intros.
-simpl.
-rewrite IHs.
-trivial.
-simpl in H.
-trivial.
-intros.
-simpl.
-rewrite IHs1.
-rewrite IHs2.
-trivial.
-case H.
-intros.
-trivial.
-case H.
-intros.
-trivial.
-Qed.*)
-
 Proposition null_increase : forall (s: term), forall (p: nat), increase_var s 0 p = s.
 Proof.
 intro. induction s.
@@ -294,18 +232,9 @@ end.
 
 Proposition de_bruijn_aux_terminate : forall (l: list term), forall (x p: nat), x < p -> de_bruijn_aux x l p = var x.
 Proof.
-intro.
-induction l.
-intros.
-simpl.
-trivial.
-intros.
-simpl.
-rewrite IHl.
-rewrite neq_branch_real_neq.
-trivial.
-omega.
-omega.
+intro. induction l.
+intros. simpl. trivial.
+intros. simpl. rewrite IHl. rewrite neq_branch_real_neq. trivial. omega. omega.
 Qed.
 
 Proposition de_bruijn_aux_keeps_close : forall (l: list term), forall (x i p: nat), closed_list i l -> closed (S i + x) (de_bruijn_aux x l p).
@@ -327,53 +256,23 @@ end.
 
 Proposition nil_substitution : forall t:term, forall p:nat, (de_bruijn_substitution_list nil p t) = t.
 Proof.
-intro.
-induction t.
-intros.
-simpl.
-trivial.
-intros.
-simpl.
-rewrite IHt.
-trivial.
-intros.
-simpl.
-rewrite IHt1.
-rewrite IHt2.
-trivial.
+intro. induction t.
+intros. simpl. trivial. 
+intros. simpl. rewrite IHt. trivial.
+intros. simpl. rewrite IHt1, IHt2. trivial.
 Qed.
 
 Proposition missing_variable_substitution : forall l: list term, forall t:term, forall p:nat, closed p t -> (de_bruijn_substitution_list l p t) = t.
 Proof.
-intro.
-induction l. intros.
-rewrite nil_substitution. trivial.
-intro.
-induction t.
-intros.
-simpl.
-rewrite neq_branch_real_neq.
-rewrite de_bruijn_aux_terminate.
-trivial.
+intro. induction l. 
+intros. rewrite nil_substitution. trivial.
+intro. induction t.
+intros. simpl. rewrite neq_branch_real_neq. rewrite de_bruijn_aux_terminate. trivial.
 inversion H. omega. omega. inversion H. omega. omega.
-intros.
-simpl.
-rewrite (IHt (S p)).
-trivial.
-simpl in H.
-trivial.
-intros.
-simpl.
-rewrite IHt1, IHt2.
-trivial.
-simpl in H.
-case H.
-intros.
-trivial.
-simpl in H.
-case H.
-intros.
-trivial.
+intros. simpl. rewrite (IHt (S p)). trivial. simpl in H. trivial.
+intros. simpl. rewrite IHt1, IHt2. trivial. simpl in H. case H.
+intros. trivial. simpl in H. case H.
+intros. trivial.
 Qed.
 
 Fixpoint absent_var (n: nat) (t: term) : Prop :=
@@ -442,50 +341,27 @@ Inductive reduce_any: term -> term -> Prop :=
 
 Proposition reduce_one_is_any : forall t u: term, reduce_one t u -> reduce_any t u.
 Proof.
-intros.
-apply (red_trans t u u).
-exact H.
-constructor.
-trivial.
+intros. apply (red_trans t u u). exact H. constructor. trivial.
 Qed.
 
 Proposition reduce_any_app_left : forall t u v: term, reduce_any t u -> reduce_any (application t v) (application u v).
 Proof.
-intros.
-induction H.
-apply red_identity.
-rewrite H.
-trivial.
-apply (red_trans (application t v) (application u v) (application v0 v)).
-constructor.
-trivial.
-trivial.
+intros. induction H. apply red_identity. rewrite H. trivial. 
+apply (red_trans (application t v) (application u v) (application v0 v)). constructor. trivial. trivial.
 Qed.
 
 Proposition reduce_any_app_right : forall t u v: term, reduce_any u v -> reduce_any (application t u) (application t v).
 Proof.
-intros.
-induction H.
-apply red_identity.
-rewrite H.
-trivial.
-apply (red_trans (application t t0) (application t u) (application t v)).
-constructor.
-trivial.
-trivial.
+intros. induction H.
+apply red_identity. rewrite H. trivial.
+apply (red_trans (application t t0) (application t u) (application t v)). constructor. trivial. trivial.
 Qed.
 
 Proposition reduce_any_lambda : forall t u v: term, reduce_any t u -> reduce_any (lambda t) (lambda u).
 Proof.
-intros.
-induction H.
-apply red_identity.
-rewrite H.
-trivial.
-apply (red_trans (lambda t) (lambda u) (lambda v0)).
-constructor.
-trivial.
-trivial.
+intros. induction H.
+apply red_identity. rewrite H. trivial.
+apply (red_trans (lambda t) (lambda u) (lambda v0)). constructor. trivial. trivial.
 Qed.
 
 Inductive instruction: Set := 
@@ -546,17 +422,10 @@ end.
 
 Theorem translate_inverse_of_compile: forall (t: term), instruction_translation (compilation t) = t.
 Proof.
-intro.
-induction t.
-simpl.
-trivial.
-simpl.
-rewrite IHt.
-trivial.
-simpl.
-rewrite IHt1.
-rewrite IHt2.
-trivial.
+intro. induction t.
+simpl. trivial.
+simpl. rewrite IHt. trivial.
+simpl. rewrite IHt1, IHt2. trivial.
 Qed.
 
 Fixpoint env_size (e: environment) : nat :=
