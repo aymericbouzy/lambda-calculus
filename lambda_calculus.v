@@ -383,10 +383,23 @@ Inductive stack: Set:=
 | St: list_instruction -> environment -> stack -> stack
 .
 
+Fixpoint krivine_access (e: environment) (n: nat) : option (list_instruction*environment) :=
+match e with
+| Nil_env => None
+| Env c0 e0 e =>
+match n with
+| 0 => Some (c0, e0)
+| S n => krivine_access e n
+end
+end.
+
 Fixpoint one_step_krivine (state: list_instruction*environment*stack) : option (list_instruction*environment*stack) :=
 match state with
-| ((Block (Access 0) c), (Env c0 e0 e), s) => Some (c0, e0, s)
-| ((Block (Access (S n)) c), (Env c0 e0 e), s) => Some ((Block (Access n) c), e, s)
+| ((Block (Access n) c), e, s) =>
+  match krivine_access e n with
+  | Some (c0, e0) => Some (c0, e0, s)
+  | None => None
+  end
 | ((Block (Push c') c), e, s) => Some (c, e, (St c' e s))
 | ((Block Grab c), e, (St c0 e0 s)) => Some (c, (Env c0 e0 e), s)
 | _ => None
@@ -447,6 +460,31 @@ match s with
 | St c0 e0 s => correct_state c0 e0 s
 end.
 
+Proposition krivine_access_keeps_correct: forall (n: nat) (c1 c2 c0: list_instruction) (e1 e2 e0: environment) (s1 s2: stack), Some (c2, e2, s2) = one_step_krivine (Block (Access n) c1, Env c0 e0 e1, s1) -> correct_state (Block (Access n) c1) (Env c0 e0 e1) s1 -> correct_state c2 e2 s2.
+Proof.
+intro. induction n.
+intros. inversion H. simpl in H0. induction s1.
+simpl. inversion H0. inversion H1. inversion H6. inversion H9.
+split. split. trivial. split. trivial. trivial. trivial.
+simpl. inversion H0. inversion H1. inversion H6. inversion H9.
+split. split. trivial. split. trivial. trivial. trivial.
+intros. inversion H.
+Qed.
+
+Theorem krivine_keeps_correct : forall (c1 c2: list_instruction) (e1 e2: environment) (s1 s2: stack), correct_state c1 e1 s1 -> Some (c2, e2, s2) = one_step_krivine (c1, e1, s1) -> correct_state c2 e2 s2.
+Proof.
+intros. induction c1. inversion H0.
+induction i.
+induction e1. inversion H0.
+
+
+induction n. inversion H0. induction s1.
+simpl. simpl in H. inversion H. inversion H1. inversion H6. inversion H9.
+split. split. trivial. split. trivial. trivial. trivial.
+simpl. simpl in H. inversion H. inversion H1. inversion H6. inversion H9.
+split. split. trivial. split. trivial. trivial. trivial.
+Qed.
+
 Theorem krivine_keeps_correct: forall (s2: stack), forall (c1: list_instruction), forall (e1: environment), forall (s1: stack), forall (c2: list_instruction), forall (e2: environment), correct_state c1 e1 s1 -> one_step_krivine (c1, e1, s1) = Some (c2, e2, s2) -> correct_state c2 e2 s2.
 Proof.
 intro.
@@ -468,14 +506,15 @@ induction s1.
 intros.
 split.
 split.
+simpl in H0.
 inversion H0.
 rewrite <- H3.
 simpl in H.
-elim H. intros. elim H1. intros. elim H5. intros.
-trivial.
+inversion H. inversion H1. inversion H5. trivial.
 split.
 trivial.
 simpl in H.
+simpl in H0.
 inversion H0.
 rewrite <- H3.
 rewrite <- H2.
@@ -484,17 +523,20 @@ trivial.
 intros.
 split.
 split.
+simpl in H0.
 inversion H0.
 split.
 trivial.
 simpl in H.
 elim H. intros. elim H1. intros. elim H3. intros. elim H6. intros.
+simpl in H0.
 inversion H0. trivial.
 induction s1.
 intros.
 split.
 split.
 simpl in H.
+simpl in H0.
 inversion H0. rewrite <- H3.
 elim H. intros. elim H1. intros. elim H5. intros. elim H8. intros. trivial.
 split. trivial.
