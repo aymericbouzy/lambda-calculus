@@ -569,15 +569,7 @@ Qed.
 
 Theorem krivine_step_is_reduction: forall (c1 c2: list_instruction) (e1 e2: environment) (s1 s2: stack), Some (c2, e2, s2) = one_step_krivine (c1, e1, s1) -> reduce_one (state_translation c1 e1 s1) (state_translation c2 e2 s2).
 Proof.
-admit. (*
-intros.
-induction c1. inversion H.
-induction i. induction n. induction e1. inversion H.
-inversion H. induction s1; simpl; rewrite null_increase; apply red_identity; trivial.
-induction e1. inversion H.
-inversion H. induction s1. simpl. induction e1_2. simpl.
-inversion H in IHe1_2. 
-simpl in IHe1_2. apply IHe1_2. *)
+
 Qed.
 
 Inductive krivine_steps: list_instruction -> list_instruction -> environment ->
