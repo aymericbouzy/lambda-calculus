@@ -567,8 +567,13 @@ split. split. trivial. split. trivial. trivial. split. split. trivial. split. tr
 intros. apply (H s1 e1 c2 e2). trivial. trivial.
 Qed.
 
-Theorem krivine_step_is_reduction: forall (c1 c2: list_instruction) (e1 e2: environment) (s1 s2: stack), Some (c2, e2, s2) = one_step_krivine (c1, e1, s1) -> reduce_one (state_translation c1 e1 s1) (state_translation c2 e2 s2).
+Theorem krivine_step_is_reduction: forall (c1 c2: list_instruction) (e1 e2: environment) (s1 s2: stack), Some (c2, e2, s2) = one_step_krivine (c1, e1, s1) -> reduce_one (state_translation c1 e1 s1) (state_translation c2 e2 s2) \/ state_translation c1 e1 s1 = state_translation c2 e2 s2.
 Proof.
+intro. induction c1. intros. inversion H.
+induction c2. induction i. induction n. intro. induction e1. intros. inversion H.
+intros. inversion H. simpl.
+
+
 
 Qed.
 
@@ -582,7 +587,11 @@ Lemma krivine_steps_are_reductions : forall (c1 c2: list_instruction) (e1 e2: en
 Proof.
 intros. induction H.
 rewrite H. rewrite H0. rewrite H1. apply red_identity. trivial.
-apply (red_trans _ (state_translation c2 e2 s2)). apply krivine_step_is_reduction. trivial. trivial.
+assert (reduce_one (state_translation c1 e1 s1) (state_translation c2 e2 s2) \/ state_translation c1 e1 s1 = state_translation c2 e2 s2).
+apply krivine_step_is_reduction. trivial.
+inversion H1.
+apply (red_trans _ (state_translation c2 e2 s2)). trivial. trivial.
+rewrite H2. trivial.
 Qed.
 
 Theorem krivine_steps_keep_correct : forall (c1 c2: list_instruction) (e1 e2: environment) (s1 s2: stack), krivine_steps c1 c2 e1 e2 s1 s2 -> correct_state c1 e1 s1 -> correct_state c2 e2 s2.
