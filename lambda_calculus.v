@@ -247,6 +247,12 @@ apply increase_var_keeps_close. simpl. apply closed_implication. inversion H. as
 intro. rewrite neq_branch_real_neq. simpl. apply IHl. inversion H. trivial. trivial.
 Qed.
 
+(*Proposition de_bruijn_aux_invariant : forall (l: list term) (n p: nat), de_bruijn_aux (S n) l (S p) = de_bruijn_aux n l p.
+Proof.
+intro. induction l. intros. simpl.
+
+Qed.*)
+
 Fixpoint de_bruijn_substitution_list (l: list term) (p: nat) (t: term) : term :=
 match t with
 | var x => de_bruijn_aux x l p
@@ -331,7 +337,7 @@ Inductive reduce_one: term -> term -> Prop :=
   | red_app_left: forall t u v: term, reduce_one t u -> reduce_one (application t v) (application u v)
   | red_app_right: forall t u v: term, reduce_one u v -> reduce_one (application t u) (application t v)
   | red_lambda: forall t u: term, reduce_one t u -> reduce_one (lambda t) (lambda u)
-  | red_beta: forall t u v: term, t = application (lambda u) v -> reduce_one t (de_bruijn_substitution_list (v :: nil) 0 u)
+  | red_beta: forall t u v: term, t = de_bruijn_substitution_list (v :: nil) 0 u -> reduce_one (application (lambda u) v) t
 .
 
 Inductive reduce_any: term -> term -> Prop :=
@@ -437,7 +443,7 @@ end.
 Fixpoint correct_env (e: environment) : Prop :=
 match e with
 | Nil_env => True
-| Env c0 e0 e1 => correct_env e0 /\ correct_env e1 /\ closed (S (env_size e0)) (instruction_translation c0)
+| Env c0 e0 e1 => correct_env e0 /\ correct_env e1 /\ closed (env_size e0) (instruction_translation c0)
 end.
 
 Fixpoint correct_state (c: list_instruction) (e: environment) (s: stack) : Prop :=
@@ -446,6 +452,13 @@ match s with
 | Nil_stack => True
 | St c0 e0 s => correct_state c0 e0 s
 end.
+
+Theorem translate_state_correct : forall (c1 c2: list_instruction) (e1 e2: environment) (s1 s2: stack), 
+correct_state c1 e1 s1 -> state_translation c1 e1 s1 = state_translation c2 e2 s2 ->
+correct_state c2 e2 s2.
+Proof.
+intro. induction c1. intros. induction s1. inversion H.
+Qed.
 
 Theorem krivine_keeps_correct: forall (s2: stack), forall (c1: list_instruction), forall (e1: environment), forall (s1: stack), forall (c2: list_instruction), forall (e2: environment), correct_state c1 e1 s1 -> one_step_krivine (c1, e1, s1) = Some (c2, e2, s2) -> correct_state c2 e2 s2.
 Proof.
@@ -566,15 +579,75 @@ simpl. simpl in H. inversion H. inversion H1. inversion H9. inversion H11.
 split. split. trivial. split. trivial. trivial. split. split. trivial. split. trivial. trivial. trivial.
 intros. apply (H s1 e1 c2 e2). trivial. trivial.
 Qed.
+(*
+Proposition krivine_grab_is_reduction: forall (s1: stack) (e1: environment) (c1 c2: list_instruction) (e2: environment) (s2: stack), 
+Some (c2, e2, s2) = one_step_krivine (Block Grab c1, e1, s1) -> 
+correct_state (Block Grab c1) e1 s1 -> 
+reduce_one (state_translation (Block Grab c1) e1 s1) (state_translation c2 e2 s2) \/ (state_translation c2 e2 s2) = (state_translation (Block Grab c1) e1 s1).
+Proof.
+intro. induction s1.
+intros. inversion H.
+intros. inversion H. simpl. left. apply red_beta. rewrite successive_substitutions.
+induction s1. simpl. trivial.
+simpl.
+inversion H0. inversion H5.
 
-Theorem krivine_step_is_reduction: forall (c1 c2: list_instruction) (e1 e2: environment) (s1 s2: stack), Some (c2, e2, s2) = one_step_krivine (c1, e1, s1) -> reduce_one (state_translation c1 e1 s1) (state_translation c2 e2 s2) \/ state_translation c1 e1 s1 = state_translation c2 e2 s2.
+Qed.
+
+Proposition krivine_push_is_reduction: forall (e1: environment) (c0 c1 c2: list_instruction) (e2: environment) (s1 s2: stack), 
+Some (c2, e2, s2) = one_step_krivine (Block (Push c0) c1, e1, s1) -> 
+correct_state (Block (Push c0) c1) e1 s1 -> 
+reduce_one (state_translation c2 e2 s2) (state_translation (Block (Push c0) c1) e1 s1) \/ (state_translation c2 e2 s2) = (state_translation (Block (Push c0) c1) e1 s1).
+Proof.
+intros. inversion H. simpl. induction e1.
+simpl. rewrite nil_substitution.
+induction s1. simpl. rewrite nil_substitution. rewrite nil_substitution. right. trivial.
+simpl. rewrite nil_substitution. rewrite nil_substitution. 
+inversion H0. inversion H1. inversion H7. inversion H9. left. apply  
+
+intro. induction e1.
+intros. inversion H. simpl. rewrite nil_substitution. induction s1.
+simpl. rewrite nil_substitution. rewrite nil_substitution. inversion H0. inversion H1. inversion H7. simpl in H9.
+induction c1. simpl. inversion H9. induction i. simpl in H9. inversion H9. simpl.
+simpl. 
+assert (instruction_translation c1 = de_bruijn_substitution_list ((instruction_translation c0) :: nil) 0 (instruction_translation c1)).
+rewrite missing_variable_substitution. trivial. simpl in H9. simpl. trivial.
+assert (reduce_one
+  (application (lambda (instruction_translation c1))
+     (instruction_translation c0)) (de_bruijn_substitution_list ((instruction_translation c0) :: nil) 0 (lambda (instruction_translation c1))) -> reduce_one
+  (application (lambda (instruction_translation c1))
+     (instruction_translation c0)) (lambda (instruction_translation c1))).
+rewrite <- H10. trivial. apply H11.
+apply red_beta.
+Qed.
+
+Proposition krivine_access_ 0_is_identity: forall , state_translation ((Block (Access 0) c), (Env c0 e0 e), s)
+
+Theorem krivine_step_is_reduction: forall (c1 c2: list_instruction) (e1 e2: environment) (s1 s2: stack), Some (c2, e2, s2) = one_step_krivine (c1, e1, s1) -> correct_state c1 e1 s1 -> reduce_one (state_translation c1 e1 s1) (state_translation c2 e2 s2) \/ state_translation c1 e1 s1 = state_translation c2 e2 s2.
 Proof.
 intro. induction c1. intros. inversion H.
-induction c2. induction i. induction n. intro. induction e1. intros. inversion H.
-intros. inversion H. simpl.
+assert (forall (e1: environment) (s1: stack) (e2 : environment) (s2 : stack) (c2 : list_instruction),
+Some (c2, e2, s2) = one_step_krivine (Block i c1, e1, s1) ->
+correct_state (Block i c1) e1 s1 ->
+reduce_one (state_translation (Block i c1) e1 s1)
+  (state_translation c2 e2 s2) \/
+state_translation (Block i c1) e1 s1 = state_translation c2 e2 s2).
+induction i. induction n. intro. induction e1. intros. inversion H.
+intros. inversion H. simpl. induction s1; simpl; rewrite null_increase; right; trivial.
+intro. induction e1. intros. inversion H.
+intro. induction s1. intro. induction e2. intros. assert (correct_state c2 Nil_env s2).
+apply (krivine_keeps_correct _ (Block (Access (S n)) c1) (Env l e1_1 e1_2) Nil_stack). trivial. rewrite H. trivial.
+inversion H. simpl. inversion H in H1. simpl in H1. inversion H1. inversion H2. inversion H11. inversion H13.
+intros. simpl in IHn. simpl.
 
 
 
+
+Qed.*)
+
+Theorem krivine_step_is_reduction: forall (c1 c2: list_instruction) (e1 e2: environment) (s1 s2: stack), Some (c2, e2, s2) = one_step_krivine (c1, e1, s1) -> correct_state c1 e1 s1 -> reduce_one (state_translation c1 e1 s1) (state_translation c2 e2 s2) \/ state_translation c1 e1 s1 = state_translation c2 e2 s2.
+Proof.
+admit.
 Qed.
 
 Inductive krivine_steps: list_instruction -> list_instruction -> environment ->
@@ -583,14 +656,15 @@ Inductive krivine_steps: list_instruction -> list_instruction -> environment ->
 | any_step: forall (c1 c2 c3: list_instruction) (e1 e2 e3: environment) (s1 s2 s3: stack), Some (c2, e2, s2) = one_step_krivine (c1, e1, s1) -> krivine_steps c2 c3 e2 e3 s2 s3 -> krivine_steps c1 c3 e1 e3 s1 s3
 .
 
-Lemma krivine_steps_are_reductions : forall (c1 c2: list_instruction) (e1 e2: environment) (s1 s2: stack), krivine_steps c1 c2 e1 e2 s1 s2 -> reduce_any (state_translation c1 e1 s1) (state_translation c2 e2 s2).
+Lemma krivine_steps_are_reductions : forall (c1 c2: list_instruction) (e1 e2: environment) (s1 s2: stack), krivine_steps c1 c2 e1 e2 s1 s2 -> correct_state c1 e1 s1 -> reduce_any (state_translation c1 e1 s1) (state_translation c2 e2 s2).
 Proof.
 intros. induction H.
-rewrite H. rewrite H0. rewrite H1. apply red_identity. trivial.
+rewrite H, H1, H2. apply red_identity. trivial.
 assert (reduce_one (state_translation c1 e1 s1) (state_translation c2 e2 s2) \/ state_translation c1 e1 s1 = state_translation c2 e2 s2).
-apply krivine_step_is_reduction. trivial.
-inversion H1.
-apply (red_trans _ (state_translation c2 e2 s2)). trivial. trivial.
+apply krivine_step_is_reduction. trivial. trivial.
+inversion H1. elim H2.
+intro. apply (red_trans _ (state_translation c2 e2 s2)). trivial. apply IHkrivine_steps. apply (krivine_keeps_correct _ c1 e1 s1). trivial. rewrite H. trivial.
+intro. rewrite H12. apply IHkrivine_steps. 
 rewrite H2. trivial.
 Qed.
 
