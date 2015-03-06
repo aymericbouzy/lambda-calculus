@@ -453,13 +453,6 @@ match s with
 | St c0 e0 s => correct_state c0 e0 s
 end.
 
-Theorem translate_state_correct : forall (c1 c2: list_instruction) (e1 e2: environment) (s1 s2: stack), 
-correct_state c1 e1 s1 -> state_translation c1 e1 s1 = state_translation c2 e2 s2 ->
-correct_state c2 e2 s2.
-Proof.
-intro. induction c1. intros. induction s1. inversion H.
-Qed.
-
 Theorem krivine_keeps_correct: forall (s2: stack), forall (c1: list_instruction), forall (e1: environment), forall (s1: stack), forall (c2: list_instruction), forall (e2: environment), correct_state c1 e1 s1 -> one_step_krivine (c1, e1, s1) = Some (c2, e2, s2) -> correct_state c2 e2 s2.
 Proof.
 intro.
@@ -664,8 +657,10 @@ assert (reduce_one (state_translation c1 e1 s1) (state_translation c2 e2 s2) \/ 
 apply krivine_step_is_reduction. trivial. trivial.
 inversion H1. elim H2.
 intro. apply (red_trans _ (state_translation c2 e2 s2)). trivial. apply IHkrivine_steps. apply (krivine_keeps_correct _ c1 e1 s1). trivial. rewrite H. trivial.
-intro. rewrite H12. apply IHkrivine_steps. 
-rewrite H2. trivial.
+intro. rewrite H12. apply IHkrivine_steps. apply (krivine_keeps_correct _ c1 e1 s1). trivial. rewrite H. trivial. 
+elim H2.
+intro. apply (red_trans _ (state_translation c2 e2 s2)). trivial. apply IHkrivine_steps. apply (krivine_keeps_correct _ c1 e1 s1). trivial. rewrite H. trivial.
+intro. rewrite H11. apply IHkrivine_steps. apply (krivine_keeps_correct _ c1 e1 s1). trivial. rewrite H. trivial. 
 Qed.
 
 Theorem krivine_steps_keep_correct : forall (c1 c2: list_instruction) (e1 e2: environment) (s1 s2: stack), krivine_steps c1 c2 e1 e2 s1 s2 -> correct_state c1 e1 s1 -> correct_state c2 e2 s2.
