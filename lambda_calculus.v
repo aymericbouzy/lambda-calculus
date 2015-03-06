@@ -245,13 +245,13 @@ intros. simpl. trivial.
 intros. simpl. rewrite IHl. rewrite neq_branch_real_neq. trivial. omega. omega.
 Qed.
 
-Proposition de_bruijn_aux_keeps_close : forall (l: list term), forall (x i p: nat), closed_list i l -> closed (S i + x) (de_bruijn_aux x l p).
+Proposition de_bruijn_aux_keeps_close : forall (l: list term), forall (x i p k: nat), closed_list i l -> k >= S i + x -> closed k (de_bruijn_aux x l p).
 Proof.
 intro. induction l.
 intros. simpl. omega.
-intros. simpl. assert (x = p \/ x <> p). omega. case H0.
+intros. simpl. assert (x = p \/ x <> p). omega. case H1.
 intro. rewrite eq_branch_real_eq. simpl in IHl. apply (increase_var_keeps_close _ _ _ (S i)). apply closed_implication. inversion H. trivial. omega. omega. trivial.
-intro. rewrite neq_branch_real_neq. simpl. apply IHl. inversion H. trivial. trivial.
+intro. rewrite neq_branch_real_neq. simpl. apply (IHl _ i). inversion H. trivial. trivial. trivial.
 Qed.
 
 (*Proposition de_bruijn_aux_invariant : forall (l: list term) (n p: nat), de_bruijn_aux (S n) l (S p) = de_bruijn_aux n l p.
@@ -586,13 +586,18 @@ split. split. trivial. split. trivial. trivial. split. split. trivial. split. tr
 intros. apply (H s1 e1 c2 e2). trivial. trivial.
 Qed.
 
-Proposition closed_after_susbstitutions : forall (l: list term) (t: term) (n p: nat), closed_list n (t :: l) -> closed n (de_bruijn_substitution_list l p t).
+Proposition closed_after_susbstitutions : forall (l: list term) (t: term) (n p m: nat), closed_list m (t :: l) -> m + p <= n -> closed n (de_bruijn_substitution_list l p t).
 Proof.
 intro. induction l.
-intros. rewrite nil_substitution. inversion H. trivial.
+intros. rewrite nil_substitution. inversion H. apply (closed_implication_generalized _ m). trivial. omega.
 intro. induction t. intros.
-assert (n = p \/ n <> p). omega. induction H0. simpl. rewrite eq_branch_real_eq. inversion H. inversion H2. simpl in H1. apply (increase_var_keeps_close _ _ _ (n0 - p)).
-apply (closed_implication_generalized _ n0).
+assert (n = p \/ n < p \/ n > p). omega. induction H1. simpl. rewrite eq_branch_real_eq. inversion H. inversion H3. simpl in H2. apply (increase_var_keeps_close _ _ _ m).
+trivial. omega. omega. omega.
+simpl. rewrite neq_branch_real_neq. apply (de_bruijn_aux_keeps_close _ _ m).
+
+
+assert (de_bruijn_aux n l (S p) = de_bruijn_substitution_list l (S p) (var n)). simpl. trivial. rewrite H2.
+apply (IHl _ _ _ m). inversion H. inversion H4. simpl. simpl in H3. split. trivial. trivial. 
 Qed.
 
 Proposition correct_implies_closed : forall (s: stack) (c: list_instruction) (e: environment), correct_state c e s -> closed 0 (state_translation c e s).
