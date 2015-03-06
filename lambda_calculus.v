@@ -586,18 +586,21 @@ split. split. trivial. split. trivial. trivial. split. split. trivial. split. tr
 intros. apply (H s1 e1 c2 e2). trivial. trivial.
 Qed.
 
-Proposition closed_after_susbstitutions : forall (l: list term) (t: term) (n p m: nat), closed_list m (t :: l) -> m + p <= n -> closed n (de_bruijn_substitution_list l p t).
+Proposition closed_after_susbstitutions : forall (l: list term) (t: term) (k j p m: nat), closed j t -> closed_list m l -> m + j <= k -> closed k (de_bruijn_substitution_list l p t).
 Proof.
 intro. induction l.
-intros. rewrite nil_substitution. inversion H. apply (closed_implication_generalized _ m). trivial. omega.
+intros. rewrite nil_substitution. apply (closed_implication_generalized _ j). trivial. omega.
 intro. induction t. intros.
-assert (n = p \/ n < p \/ n > p). omega. induction H1. simpl. rewrite eq_branch_real_eq. inversion H. inversion H3. simpl in H2. apply (increase_var_keeps_close _ _ _ m).
-trivial. omega. omega. omega.
-simpl. rewrite neq_branch_real_neq. apply (de_bruijn_aux_keeps_close _ _ m).
-
-
-assert (de_bruijn_aux n l (S p) = de_bruijn_substitution_list l (S p) (var n)). simpl. trivial. rewrite H2.
-apply (IHl _ _ _ m). inversion H. inversion H4. simpl. simpl in H3. split. trivial. trivial. 
+assert (n = p \/ n < p \/ n > p). omega. induction H2. simpl. rewrite eq_branch_real_eq. inversion H0. simpl in H. apply (increase_var_keeps_close _ _ _ m). trivial. omega. omega. omega.
+induction H2.
+simpl. rewrite neq_branch_real_neq. apply (de_bruijn_aux_keeps_close _ _ m). inversion H0. trivial. simpl in H. omega. omega.
+simpl. rewrite neq_branch_real_neq. inversion H. assert (de_bruijn_aux n l (S p) = de_bruijn_substitution_list l (S p) (var n)). simpl. trivial. rewrite H4. apply (IHl _ _ j _ m).
+inversion H. simpl. omega. simpl. omega. inversion H0. trivial. trivial.
+apply (de_bruijn_aux_keeps_close _ _ m). inversion H0. trivial. omega. omega. 
+intros. simpl. apply (IHt _ (S j) _ m). simpl in H. trivial. trivial. omega.
+intros. simpl. inversion H. split. 
+apply (IHt1 _ j _ m). trivial. trivial. trivial.
+apply (IHt2 _ j _ m). trivial. trivial. trivial.
 Qed.
 
 Proposition correct_implies_closed : forall (s: stack) (c: list_instruction) (e: environment), correct_state c e s -> closed 0 (state_translation c e s).
