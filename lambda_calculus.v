@@ -30,6 +30,14 @@ apply IHt1. trivial.
 apply IHt2. trivial.
 Qed.
 
+Proposition closed_implication_generalized : forall (p n: nat) (t: term), closed n t -> n <= p -> closed p t.
+Proof.
+intro. induction p. intros.
+assert (0 = n). omega. rewrite H1. trivial.
+intros. assert (n = S p \/ n < S p). omega. case H1. intros. rewrite <- H2. trivial.
+intros. apply closed_implication. apply (IHp n). trivial. omega.
+Qed.
+
 Proposition closed_list_implication : forall (l: list term) (n: nat), closed_list n l -> closed_list (S n) l.
 Proof.
 intro. induction l.
@@ -197,14 +205,14 @@ match s with
 | application t u => application (increase_var t n p) (increase_var u n p)
 end.
 
-Proposition increase_var_keeps_close : forall (a: term) (p i n: nat), closed (i + p) a -> closed (i + n + p) (increase_var a n p).
+Proposition increase_var_keeps_close : forall (a: term) (p n m k: nat), closed m a -> k >= n + p -> k >= m + n -> closed k (increase_var a n p).
 Proof.
 intro. induction a.
-intros. simpl. assert (p > n \/ p <= n). omega. case H0.
+intros. simpl. assert (p > n \/ p <= n). omega. case H2.
 intro. rewrite gt_branch_real_gt. simpl. omega. omega.
 intro. rewrite leq_branch_real_leq. simpl. simpl in H. omega. omega.
-intros. simpl. assert (S (i + n + p) = i + n + S p). omega. rewrite H0. apply IHa. simpl in H. assert (i + S p = S (i + p)). omega. rewrite H1. trivial.
-intros. simpl. inversion H. split. apply IHa1. trivial. apply IHa2. trivial.
+intros. simpl.  apply (IHa _ _ (S m)). simpl in H. trivial. omega. omega.
+intros. simpl. inversion H. split. apply (IHa1 _ _ m). trivial. omega. omega. apply (IHa2 _ _ m). trivial. omega. omega.
 Qed.
 
 Proposition null_increase : forall (s: term), forall (p: nat), increase_var s 0 p = s.
@@ -242,8 +250,7 @@ Proof.
 intro. induction l.
 intros. simpl. omega.
 intros. simpl. assert (x = p \/ x <> p). omega. case H0.
-intro. rewrite eq_branch_real_eq. simpl in IHl. assert (S (i + x) = (S i) + p + 0). omega. rewrite H2.
-apply increase_var_keeps_close. simpl. apply closed_implication. inversion H. assert (i + 0 = i). omega. rewrite H5. trivial. trivial.
+intro. rewrite eq_branch_real_eq. simpl in IHl. apply (increase_var_keeps_close _ _ _ (S i)). apply closed_implication. inversion H. trivial. omega. omega. trivial.
 intro. rewrite neq_branch_real_neq. simpl. apply IHl. inversion H. trivial. trivial.
 Qed.
 
@@ -332,7 +339,13 @@ intro. rewrite de_bruijn_aux_terminate. simpl. rewrite neq_branch_real_neq. triv
 intros. simpl. rewrite IHt. trivial. apply closed_list_implication. trivial.
 intros. simpl. rewrite IHt1, IHt2. trivial. trivial. trivial.
 Qed.
-
+(*
+Proposition whatever : forall (l1 l2: list term) (t1 t2 t3: term) (n: nat), de_bruijn_substitution_list (de_bruijn_substitution_list l2 n t2 :: l1) n t1 = de_bruijn_substitution_list ((de_bruijn_substitution_list l2 n t2) :: nil) n (de_bruijn_substitution_list l1 (S n) t1).
+Proof.
+intros. induction l2.
+rewrite nil_substitution.
+Qed.
+*)
 Inductive reduce_one: term -> term -> Prop :=
   | red_app_left: forall t u v: term, reduce_one t u -> reduce_one (application t v) (application u v)
   | red_app_right: forall t u v: term, reduce_one u v -> reduce_one (application t u) (application t v)
@@ -572,7 +585,29 @@ simpl. simpl in H. inversion H. inversion H1. inversion H9. inversion H11.
 split. split. trivial. split. trivial. trivial. split. split. trivial. split. trivial. trivial. trivial.
 intros. apply (H s1 e1 c2 e2). trivial. trivial.
 Qed.
-(*
+
+Proposition closed_after_susbstitutions : forall (l: list term) (t: term) (n p: nat), closed_list n (t :: l) -> closed n (de_bruijn_substitution_list l p t).
+Proof.
+intro. induction l.
+intros. rewrite nil_substitution. inversion H. trivial.
+intro. induction t. intros.
+assert (n = p \/ n <> p). omega. induction H0. simpl. rewrite eq_branch_real_eq. inversion H. inversion H2. simpl in H1. apply (increase_var_keeps_close _ _ _ (n0 - p)).
+apply (closed_implication_generalized _ n0).
+Qed.
+
+Proposition correct_implies_closed : forall (s: stack) (c: list_instruction) (e: environment), correct_state c e s -> closed 0 (state_translation c e s).
+Proof.
+intro. induction s.
+intros. inversion H. inversion H0. inversion H3. induction e.
+induction c.
+inversion H5.
+simpl. rewrite nil_substitution.
+induction i. inversion H5.
+simpl in H5. simpl. trivial.
+simpl in H5. simpl. trivial.
+simpl. simpl in H5. 
+Qed.
+
 Proposition krivine_grab_is_reduction: forall (s1: stack) (e1: environment) (c1 c2: list_instruction) (e2: environment) (s2: stack), 
 Some (c2, e2, s2) = one_step_krivine (Block Grab c1, e1, s1) -> 
 correct_state (Block Grab c1) e1 s1 -> 
@@ -580,11 +615,10 @@ reduce_one (state_translation (Block Grab c1) e1 s1) (state_translation c2 e2 s2
 Proof.
 intro. induction s1.
 intros. inversion H.
-intros. inversion H. simpl. left. apply red_beta. rewrite successive_substitutions.
-induction s1. simpl. trivial.
-simpl.
-inversion H0. inversion H5.
-
+intros. inversion H. simpl. left. apply red_beta.
+rewrite successive_substitutions.
+admit.
+inversion H0. simpl.
 Qed.
 
 Proposition krivine_push_is_reduction: forall (e1: environment) (c0 c1 c2: list_instruction) (e2: environment) (s1 s2: stack), 
@@ -670,7 +704,7 @@ apply IHkrivine_steps.
 apply (krivine_keeps_correct s2 c1 e1 s1 c2 e2). trivial. rewrite H. trivial.
 Qed.
 
-Theorem correct_after_compilation_and_krivine : forall (t: term) (c: list_instruction) (e: environment) (s: stack), closed 1 t -> krivine_steps (compilation t) c Nil_env e Nil_stack s -> correct_state c e s.
+Theorem correct_after_compilation_and_krivine : forall (t: term) (c: list_instruction) (e: environment) (s: stack), closed 0 t -> krivine_steps (compilation t) c Nil_env e Nil_stack s -> correct_state c e s.
 Proof.
 intros.
 apply (krivine_steps_keep_correct (compilation t) c Nil_env e Nil_stack s). trivial.
