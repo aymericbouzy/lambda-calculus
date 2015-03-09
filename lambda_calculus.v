@@ -232,26 +232,26 @@ intros. simpl. rewrite (IHs n (S p)). trivial. simpl in H. trivial.
 intros. simpl. inversion H. rewrite IHs1, IHs2. trivial. trivial. trivial. 
 Qed.
 
-Fixpoint de_bruijn_aux (x: nat) (l: list term) (i p: nat): term :=
+Fixpoint de_bruijn_aux (x: nat) (l: list term) (p: nat): term :=
 match l with
   | nil => var x
-  | s :: r => eq_nat_branch x p (increase_var s i 0) (de_bruijn_aux x r i (S p))
+  | s :: r => eq_nat_branch x p (increase_var s p 0) (de_bruijn_aux x r (S p))
 end.
 
-Proposition de_bruijn_aux_terminate : forall (l: list term), forall (x i p: nat), x < p -> de_bruijn_aux x l i p = var x.
+Proposition de_bruijn_aux_terminate : forall (l: list term), forall (x p: nat), x < p -> de_bruijn_aux x l p = var x.
 Proof.
 intro. induction l.
 intros. simpl. trivial.
 intros. simpl. rewrite IHl. rewrite neq_branch_real_neq. trivial. omega. omega.
 Qed.
 
-Proposition de_bruijn_aux_keeps_close : forall (l: list term), forall (x i j p k: nat), closed_list i l -> k > j + i + x -> closed k (de_bruijn_aux x l j p).
+Proposition de_bruijn_aux_keeps_close : forall (l: list term), forall (x i p k: nat), closed_list i l -> k >= S i + x -> closed k (de_bruijn_aux x l p).
 Proof.
 intro. induction l.
 intros. simpl. omega.
-intros. simpl. assert (x = p \/ x <> p). omega. inversion H1.
-rewrite eq_branch_real_eq. simpl in IHl. apply (increase_var_keeps_close _ _ _ (S i)). apply closed_implication. inversion H. trivial. omega. omega. trivial.
-rewrite neq_branch_real_neq. simpl. apply (IHl _ i). inversion H. trivial. trivial. trivial.
+intros. simpl. assert (x = p \/ x <> p). omega. case H1.
+intro. rewrite eq_branch_real_eq. simpl in IHl. apply (increase_var_keeps_close _ _ _ (S i)). apply closed_implication. inversion H. trivial. omega. omega. trivial.
+intro. rewrite neq_branch_real_neq. simpl. apply (IHl _ i). inversion H. trivial. trivial. trivial.
 Qed.
 
 (*Proposition de_bruijn_aux_invariant : forall (l: list term) (n p: nat), de_bruijn_aux (S n) l (S p) = de_bruijn_aux n l p.
@@ -262,7 +262,7 @@ Qed.*)
 
 Fixpoint de_bruijn_substitution_list (l: list term) (p: nat) (t: term) : term :=
 match t with
-| var x => de_bruijn_aux x l p p
+| var x => de_bruijn_aux x l p
 | lambda t => lambda (de_bruijn_substitution_list l (S p) t)
 | application t u => application (de_bruijn_substitution_list l p t) (de_bruijn_substitution_list l p u)
 end.
@@ -280,8 +280,8 @@ Proof.
 intro. induction l. 
 intros. rewrite nil_substitution. trivial.
 intro. induction t.
-intros. simpl. simpl in H. rewrite neq_branch_real_neq. rewrite de_bruijn_aux_terminate. trivial.
-simpl in H. omega. omega.
+intros. simpl. rewrite neq_branch_real_neq. rewrite de_bruijn_aux_terminate. trivial.
+inversion H. omega. omega. inversion H. omega. omega.
 intros. simpl. rewrite (IHt (S p)). trivial. simpl in H. trivial.
 intros. simpl. rewrite IHt1, IHt2. trivial. simpl in H. case H.
 intros. trivial. simpl in H. case H.
@@ -295,20 +295,12 @@ match t with
 | application t u => absent_var n t /\ absent_var n u
 end.
 
-Lemma absent_vars_in_closed : forall (t: term) (n k: nat), closed n t -> k >= n -> absent_var k t.
-Proof.
-intro. induction t.
-intros. simpl. simpl in H. omega.
-intros. simpl. apply (IHt (S n)). simpl in H. trivial. omega.
-intros. simpl. inversion H. split. apply (IHt1 n). trivial. trivial. apply (IHt2 n). trivial. trivial.
-Qed.
-
 Lemma absent_vars_after_increase : forall (t: term) (n p i: nat), i >= n -> i < n + p -> absent_var i (increase_var t p n).
 Proof.
 intro. induction t.
-intros. simpl. assert (n0 > n \/ n0 <= n). omega. inversion H1.
-rewrite gt_branch_real_gt. simpl. omega. trivial.
-rewrite leq_branch_real_leq. simpl. omega. trivial.
+intros. simpl. assert (n0 > n \/ n0 <= n). omega. elim H1.
+intro. rewrite gt_branch_real_gt. simpl. omega. trivial.
+intro. rewrite leq_branch_real_leq. simpl. omega. trivial.
 simpl. intros. apply IHt. omega. omega.
 intros. simpl. split. apply IHt1. trivial. trivial. apply IHt2. trivial. trivial.
 Qed.
@@ -321,18 +313,13 @@ intros. simpl. rewrite IHt. trivial. simpl in H. trivial.
 intros. simpl. inversion H. rewrite IHt1, IHt2. trivial. trivial. trivial.
 Qed.
 
-Lemma absent_var_after_aux : forall (l: list term) (n p j k m: nat), k >= p + j \/ k < j -> k <> n -> closed_list p l -> absent_var k (de_bruijn_aux n l j m).
+Lemma absent_var_after_aux : forall (l: list term) (n p k m: nat), k >= p -> n > k -> closed_list p l -> absent_var k (de_bruijn_aux n l m).
 Proof.
 intro. induction l.
 intros. simpl. omega.
-intros. simpl. 
-assert (n = m \/ n <> m). omega. inversion H. inversion H2.
-rewrite eq_branch_real_eq. assert (k < j \/ k >= j). omega. inversion H5.
-apply absent_vars_after_increase. omega. omega.
-apply (absent_vars_in_closed _ (p + j)). apply (increase_var_keeps_close _ _ _ p). inversion H1. trivial. omega. omega. omega. trivial.
-rewrite neq_branch_real_neq. apply (IHl _ p). omega. trivial. inversion H1. trivial. trivial.
-inversion H2. rewrite eq_branch_real_eq. apply absent_vars_after_increase. omega. omega. trivial.
-rewrite neq_branch_real_neq. apply (IHl _ p). right. trivial. trivial. inversion H1. trivial. trivial.
+intros. simpl. assert (n = m \/ n <> m). omega. case H2.
+intro. rewrite eq_branch_real_eq. apply absent_vars_after_increase. omega. omega. trivial.
+intro. rewrite neq_branch_real_neq. apply (IHl _ p). trivial. trivial. inversion H1. trivial. trivial.
 Qed.
 
 Proposition successive_substitutions : forall l:list term, forall t:term, forall p: nat, forall u:term, closed_list p (u :: l) -> de_bruijn_substitution_list (u :: nil) p (de_bruijn_substitution_list l (S p) t) = de_bruijn_substitution_list (u :: l) p t.
@@ -341,24 +328,13 @@ intro.
 induction l.
 intros. rewrite nil_substitution. trivial.
 intro. induction t.
-intros.
-assert (n = p \/ n = S p \/ n > S p \/ n < p). omega. inversion H0.
-simpl. rewrite (eq_branch_real_eq n p). rewrite neq_branch_real_neq. rewrite de_bruijn_aux_terminate. simpl. rewrite eq_branch_real_eq. trivial. trivial. omega. omega. trivial.
-inversion H1. simpl. rewrite (eq_branch_real_eq n (S p)). rewrite neq_branch_real_neq. rewrite eq_branch_real_eq.
-rewrite substitution_is_identity_when_absent_var. apply absent_vars_after_increase. omega. omega.
-
-
-rewrite substitution_is_identity_when_absent_var. trivial.
-assert (increase_var a p 0 = de_bruijn_aux (S i) (a :: nil) p (S i)). simpl. rewrite eq_branch_real_eq. trivial. trivial. rewrite H5.
-apply (absent_var_after_aux _ _ i).
-
-
- 
-apply absent_vars_after_increase. omega. omega.
-apply (absent_vars_in_closed _ p). apply (increase_var_keeps_close _ _ _ i). inversion H. inversion H6. trivial. omega. omega. trivial.
+intros. simpl.
+assert (n = p \/ n = S p \/ n > S p \/ n < p). omega. case H0.
+intro. rewrite (eq_branch_real_eq n p). rewrite neq_branch_real_neq. rewrite de_bruijn_aux_terminate. simpl. rewrite eq_branch_real_eq. trivial. trivial. omega. omega. trivial.
+intro. case H1. intro. rewrite (eq_branch_real_eq n (S p)). rewrite neq_branch_real_neq. rewrite substitution_is_identity_when_absent_var. trivial. apply absent_vars_after_increase. omega. omega. omega. trivial.
 intro. rewrite neq_branch_real_neq. rewrite neq_branch_real_neq.
 case H2. intro. inversion H. inversion H5. rewrite substitution_is_identity_when_absent_var. trivial.
-apply (absent_var_after_aux l _ i). omega. omega. trivial.
+apply (absent_var_after_aux l _ p). omega. omega. trivial.
 intro. rewrite de_bruijn_aux_terminate. simpl. rewrite neq_branch_real_neq. trivial. omega. omega. omega. omega.
 intros. simpl. rewrite IHt. trivial. apply closed_list_implication. trivial.
 intros. simpl. rewrite IHt1, IHt2. trivial. trivial. trivial.
@@ -738,6 +714,7 @@ Proposition
 
 Qed.
 
+*)
 Lemma krivine_grab_is_reduction : forall (e1: environment) (s1: stack) (e2 : environment) (s2 : stack) (c2 c1 : list_instruction),
 Some (c2, e2, s2) = one_step_krivine (Block Grab c1, e1, s1) ->
 correct_state (Block Grab c1) e1 s1 ->
@@ -759,30 +736,15 @@ assert (state_translation c1 (Env l e e1) s1 = state_translation c2 e2 s2). inve
 
 
 Qed.
-
-
-Lemma de_bruijn_aux_environment : forall (e: environment) (n p: nat), S n = env_size e -> de_bruijn_aux (S n) (environment_translation e) (S p) = de_bruijn_aux n (environment_translation e) p.
-Proof.
-intro. induction e.
-intros. simpl. inversion H.
-intros. simpl.
-assert (n = p \/ n <> p). omega. inversion H0. rewrite eq_branch_real_eq. rewrite eq_branch_real_eq. inversion H.
-admit. trivial. trivial. rewrite neq_branch_real_neq. rewrite neq_branch_real_neq.
-
-Qed.
 *)
+
 Theorem krivine_step_is_reduction: forall (c1 c2: list_instruction) (e1 e2: environment) (s1 s2: stack), Some (c2, e2, s2) = one_step_krivine (c1, e1, s1) -> correct_state c1 e1 s1 -> reduce_one (state_translation c1 e1 s1) (state_translation c2 e2 s2) \/ state_translation c1 e1 s1 = state_translation c2 e2 s2.
 Proof.
 intros. induction c1.
 inversion H.
 induction i.
 induction n.
-right. induction e1. inversion H.
-inversion H. induction s1; simpl; rewrite null_increase; trivial.
-induction e1. inversion H.
-inversion H. right. induction s1.
-inversion H0. inversion H1. inversion H7. inversion H9. simpl. rewrite H11. 
-
+right. apply krivine_access_0_is_reduction. trivial.
 admit.
 admit.
 admit.
