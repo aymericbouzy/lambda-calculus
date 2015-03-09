@@ -722,13 +722,10 @@ Proposition
 
 Qed.
 
-*)
+
 Lemma krivine_grab_is_reduction : forall (e1: environment) (s1: stack) (e2 : environment) (s2 : stack) (c2 c1 : list_instruction),
 Some (c2, e2, s2) = one_step_krivine (Block Grab c1, e1, s1) ->
 correct_state (Block Grab c1) e1 s1 ->
-(forall (e1 e2: environment) (c2: list_instruction) (s1 s2: stack),
-
-
 reduce_one (state_translation (Block Grab c1) e1 s1)
   (state_translation c2 e2 s2) \/
 state_translation (Block Grab c1) e1 s1 = state_translation c2 e2 s2.
