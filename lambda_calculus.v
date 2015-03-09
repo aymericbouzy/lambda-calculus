@@ -2,11 +2,13 @@ Require Import Arith.
 Require Import List.
 Require Import Omega.
 
+(* On d\u00e9finit les lambda termes *)
 Inductive term: Set :=
 | var: nat -> term
 | lambda: term -> term
 | application: term -> term -> term.
 
+(* On d\u00e9finit la propri\u00e9t\u00e9 de cloture *)
 Fixpoint closed (n: nat) (t: term): Prop :=
 match t with
 | var x => x < n
@@ -20,6 +22,7 @@ match l with
 | t :: r => (closed n t) /\ (closed_list n r)
 end.
 
+(* On v\u00e9rifie quelques propri\u00e9t\u00e9s \u00e9l\u00e9mentaires sur la cloture des termes *)
 Proposition closed_implication : forall t:term, forall n:nat, (closed n t) -> (closed (S n) t).
 Proof.
 induction t.
@@ -47,6 +50,9 @@ apply closed_implication. trivial.
 apply IHl. trivial.
 Qed.
 
+(* On utilise fr\u00e9quemment dans la suite des conditions de comparaison entre entiers naturels 
+pour d\u00e9terminer quel lambda terme associer. J'ai fais le choix d\u00e9finir mes propres fonctions de
+branchement conditionnel pour me simplifier la vie dans les d\u00e9monstrations. *)
 Fixpoint eq_nat_branch (n1 n2: nat) (t1 t2: term): term :=
 match n1, n2 with
 | 0, 0 => t1
@@ -198,6 +204,10 @@ simpl.
 apply IHn1.
 Qed.
 
+(* quand on fait une substitution d'un terme dans un autre terme, il faut augmenter l'indice de De Bruijn
+des variables libres du terme que l'on substitue. C'est le but de la fonction increase_var, qui augmente 
+les indices libres (donc sup\u00e9rieur ou \u00e9gaux \u00e0 p) de n dans s. increase_var est initialement appel\u00e9e
+avec p = 0. *)
 Fixpoint increase_var (s: term) (n: nat) (p: nat): term :=
 match s with
 | var x => gt_nat_branch p x (var x) (var (x + n))
@@ -205,6 +215,7 @@ match s with
 | application t u => application (increase_var t n p) (increase_var u n p)
 end.
 
+(* On v\u00e9rifie quelques propri\u00e9t\u00e9s utiles par la suite *)
 Proposition increase_var_keeps_close : forall (a: term) (p n m k: nat), closed m a -> k >= n + p -> k >= m + n -> closed k (increase_var a n p).
 Proof.
 intro. induction a.
@@ -232,12 +243,16 @@ intros. simpl. rewrite (IHs n (S p)). trivial. simpl in H. trivial.
 intros. simpl. inversion H. rewrite IHs1, IHs2. trivial. trivial. trivial.
 Qed.
 
+(* la fonction de_bruijn_aux permet de traiter le cas o\u00f9 la substitution doit se faire dans la variable 
+d'indice x. Deux cas de figure se pr\u00e9sentent : on trouve un \u00e9l\u00e9ment dans la liste l au bon indice et
+l'on effectue la substitution; on ne trouve pas l'\u00e9l\u00e9ment, et on laisse var x inchang\u00e9. *)
 Fixpoint de_bruijn_aux (x: nat) (l: list term) (p: nat): term :=
 match l with
   | nil => var x
   | s :: r => eq_nat_branch x p (increase_var s p 0) (de_bruijn_aux x r (S p))
 end.
 
+(* On v\u00e9rifie quelques propri\u00e9t\u00e9s utiles par la suite. *)
 Proposition de_bruijn_aux_terminate : forall (l: list term), forall (x p: nat), x < p -> de_bruijn_aux x l p = var x.
 Proof.
 intro. induction l.
@@ -254,12 +269,8 @@ intro. rewrite eq_branch_real_eq. simpl in IHl. apply (increase_var_keeps_close 
 intro. rewrite neq_branch_real_neq. simpl. apply (IHl _ i). inversion H. trivial. trivial. trivial.
 Qed.
 
-(*Proposition de_bruijn_aux_invariant : forall (l: list term) (n p: nat), de_bruijn_aux (S n) l (S p) = de_bruijn_aux n l p.
-Proof.
-intro. induction l. intros. simpl.
-
-Qed.*)
-
+(* On peut \u00e0 pr\u00e9sent d\u00e9finir la substitution proprement dite. On effectue ainsi la substitution dans le
+terme t des \u00e9lements de la liste l \u00e0 l'indice p. *)
 Fixpoint de_bruijn_substitution_list (l: list term) (p: nat) (t: term) : term :=
 match t with
 | var x => de_bruijn_aux x l p
@@ -267,6 +278,7 @@ match t with
 | application t u => application (de_bruijn_substitution_list l p t) (de_bruijn_substitution_list l p u)
 end.
 
+(* On v\u00e9rifie quelques propri\u00e9t\u00e9s sur la substitution. *)
 Proposition nil_substitution : forall t:term, forall p:nat, (de_bruijn_substitution_list nil p t) = t.
 Proof.
 intro. induction t.
@@ -288,6 +300,27 @@ intros. trivial. simpl in H. case H.
 intros. trivial.
 Qed.
 
+
+Proposition closed_after_substitutions : forall (l: list term) (t: term) (k j p m: nat), closed j t -> closed_list m l -> m + j <= k -> closed k (de_bruijn_substitution_list l p t).
+Proof.
+intro. induction l.
+intros. rewrite nil_substitution. apply (closed_implication_generalized _ j). trivial. omega.
+intro. induction t. intros.
+assert (n = p \/ n < p \/ n > p). omega. induction H2. simpl. rewrite eq_branch_real_eq. inversion H0. simpl in H. apply (increase_var_keeps_close _ _ _ m). trivial. omega. omega. omega.
+induction H2.
+simpl. rewrite neq_branch_real_neq. apply (de_bruijn_aux_keeps_close _ _ m). inversion H0. trivial. simpl in H. omega. omega.
+simpl. rewrite neq_branch_real_neq. inversion H. assert (de_bruijn_aux n l (S p) = de_bruijn_substitution_list l (S p) (var n)). simpl. trivial. rewrite H4. apply (IHl _ _ j _ m).
+inversion H. simpl. omega. simpl. omega. inversion H0. trivial. trivial.
+apply (de_bruijn_aux_keeps_close _ _ m). inversion H0. trivial. omega. omega.
+intros. simpl. apply (IHt _ (S j) _ m). simpl in H. trivial. trivial. omega.
+intros. simpl. inversion H. split.
+apply (IHt1 _ j _ m). trivial. trivial. trivial.
+apply (IHt2 _ j _ m). trivial. trivial. trivial.
+Qed.
+
+(* La d\u00e9monstration des substitutions successives n\u00e9cessitent davantage de finesse que la propri\u00e9t\u00e9
+de cloture pour connaitre les indices de De Bruijn absents dans un lambda terme. On d\u00e9finit donc une
+propri\u00e9t\u00e9 plus faible, qui indique simplement que la variable d'indice n est absente dans le term t. *)
 Fixpoint absent_var (n: nat) (t: term) : Prop :=
 match t with
 | var m => n <> m
@@ -295,6 +328,7 @@ match t with
 | application t u => absent_var n t /\ absent_var n u
 end.
 
+(* On d\u00e9montre quelques propri\u00e9t\u00e9s utiles. *)
 Lemma absent_vars_in_closed : forall (t: term) (n k: nat), closed n t -> k >= n -> absent_var k t.
 Proof.
 intro. induction t.
@@ -330,6 +364,7 @@ intro. rewrite eq_branch_real_eq. apply absent_vars_after_increase. omega. omega
 intro. rewrite neq_branch_real_neq. apply (IHl _ p). trivial. trivial. inversion H1. trivial. trivial.
 Qed.
 
+(* On peut ainsi d\u00e9montrer la propri\u00e9t\u00e9 des substitutions successives. *)
 Proposition successive_substitutions : forall l:list term, forall t:term, forall p: nat, forall u:term, closed_list p (u :: l) -> de_bruijn_substitution_list (u :: nil) p (de_bruijn_substitution_list l (S p) t) = de_bruijn_substitution_list (u :: l) p t.
 Proof.
 intro.
@@ -347,13 +382,9 @@ intro. rewrite de_bruijn_aux_terminate. simpl. rewrite neq_branch_real_neq. triv
 intros. simpl. rewrite IHt. trivial. apply closed_list_implication. trivial.
 intros. simpl. rewrite IHt1, IHt2. trivial. trivial. trivial.
 Qed.
-(*
-Proposition whatever : forall (l1 l2: list term) (t1 t2 t3: term) (n: nat), de_bruijn_substitution_list (de_bruijn_substitution_list l2 n t2 :: l1) n t1 = de_bruijn_substitution_list ((de_bruijn_substitution_list l2 n t2) :: nil) n (de_bruijn_substitution_list l1 (S n) t1).
-Proof.
-intros. induction l2.
-rewrite nil_substitution.
-Qed.
-*)
+
+(* On introduit la propri\u00e9t\u00e9 inductive reduce_one t1 t2 qui indique t1 -> t2, c'est \u00e0 dire que t1 se
+r\u00e9duit en t2 en une \u00e9tape de beta-reduction. *)
 Inductive reduce_one: term -> term -> Prop :=
   | red_app_left: forall t u v: term, reduce_one t u -> reduce_one (application t v) (application u v)
   | red_app_right: forall t u v: term, reduce_one u v -> reduce_one (application t u) (application t v)
@@ -361,11 +392,13 @@ Inductive reduce_one: term -> term -> Prop :=
   | red_beta: forall t u v: term, t = de_bruijn_substitution_list (v :: nil) 0 u -> reduce_one (application (lambda u) v) t
 .
 
+(* reduce_any t1 t2 signifie t1 ->* t2 *)
 Inductive reduce_any: term -> term -> Prop :=
   | red_identity: forall t u: term, t = u -> reduce_any t u
   | red_trans: forall t u v: term, reduce_one t u -> reduce_any u v -> reduce_any t v
 .
 
+(* On v\u00e9rifie quelques propri\u00e9t\u00e9s \u00e9l\u00e9mentaires. *)
 Proposition reduce_one_is_any : forall t u: term, reduce_one t u -> reduce_any t u.
 Proof.
 intros. apply (red_trans t u u). exact H. constructor. trivial.
@@ -391,6 +424,7 @@ apply red_identity. rewrite H. trivial.
 apply (red_trans (lambda t) (lambda u) (lambda v0)). constructor. trivial. trivial.
 Qed.
 
+(* On d\u00e9finit tous les objets n\u00e9cessaires pour simuler la machine de krivine. *)
 Inductive instruction: Set :=
 | Access: nat -> instruction
 | Grab: instruction
@@ -426,9 +460,10 @@ match t with
 | application t u => Block (Push (compilation u)) (compilation t)
 end.
 
+(* On d\u00e9finit les fonctions de traduction, appel\u00e9es tau dans le sujet. *)
 Fixpoint instruction_translation (c: list_instruction) {struct c} : term :=
 match c with
-| Nil_block => var 42
+| Nil_block => var 42 (* ce cas ne doit pas se pr\u00e9senter quand on traduit une liste d'instruction obtenue par compilation et avancement de la machine de krivine. On aurait pu utiliser un type option, mais c'est moins lourd ainsi. *)
 | Block (Access n) c => var n
 | Block (Push c1) c0 => application (instruction_translation c0) (instruction_translation c1)
 | Block Grab c => lambda (instruction_translation c)
@@ -447,6 +482,7 @@ match s with
 | (St c0 e0 s) => application (de_bruijn_substitution_list (environment_translation e) 0 (instruction_translation c)) (state_translation c0 e0 s)
 end.
 
+(* on v\u00e9rifie que la fonction de traduction permet en effet d'inverser la compilation. *)
 Theorem translate_inverse_of_compile: forall (t: term), instruction_translation (compilation t) = t.
 Proof.
 intro. induction t.
@@ -455,6 +491,7 @@ simpl. rewrite IHt. trivial.
 simpl. rewrite IHt1, IHt2. trivial.
 Qed.
 
+(* On d\u00e9finit la propri\u00e9t\u00e9 qui dit qu'un \u00e9tat de la machine de krivine est correct. *)
 Fixpoint env_size (e: environment) : nat :=
 match e with
 | Nil_env => 0
@@ -474,6 +511,7 @@ match s with
 | St c0 e0 s => correct_state c0 e0 s
 end.
 
+(* On d\u00e9montre que les \u00e9tats de la machine de krivine restent corrects au cours de son calcul. *)
 Theorem krivine_keeps_correct: forall (s2: stack), forall (c1: list_instruction), forall (e1: environment), forall (s1: stack), forall (c2: list_instruction), forall (e2: environment), correct_state c1 e1 s1 -> one_step_krivine (c1, e1, s1) = Some (c2, e2, s2) -> correct_state c2 e2 s2.
 Proof.
 intro.
@@ -594,88 +632,7 @@ split. split. trivial. split. trivial. trivial. split. split. trivial. split. tr
 intros. apply (H s1 e1 c2 e2). trivial. trivial.
 Qed.
 
-Proposition closed_after_substitutions : forall (l: list term) (t: term) (k j p m: nat), closed j t -> closed_list m l -> m + j <= k -> closed k (de_bruijn_substitution_list l p t).
-Proof.
-intro. induction l.
-intros. rewrite nil_substitution. apply (closed_implication_generalized _ j). trivial. omega.
-intro. induction t. intros.
-assert (n = p \/ n < p \/ n > p). omega. induction H2. simpl. rewrite eq_branch_real_eq. inversion H0. simpl in H. apply (increase_var_keeps_close _ _ _ m). trivial. omega. omega. omega.
-induction H2.
-simpl. rewrite neq_branch_real_neq. apply (de_bruijn_aux_keeps_close _ _ m). inversion H0. trivial. simpl in H. omega. omega.
-simpl. rewrite neq_branch_real_neq. inversion H. assert (de_bruijn_aux n l (S p) = de_bruijn_substitution_list l (S p) (var n)). simpl. trivial. rewrite H4. apply (IHl _ _ j _ m).
-inversion H. simpl. omega. simpl. omega. inversion H0. trivial. trivial.
-apply (de_bruijn_aux_keeps_close _ _ m). inversion H0. trivial. omega. omega.
-intros. simpl. apply (IHt _ (S j) _ m). simpl in H. trivial. trivial. omega.
-intros. simpl. inversion H. split.
-apply (IHt1 _ j _ m). trivial. trivial. trivial.
-apply (IHt2 _ j _ m). trivial. trivial. trivial.
-Qed.
-(*
-Proposition correct_implies_closed : forall (s: stack) (c: list_instruction) (e: environment), correct_state c e s -> closed 0 (state_translation c e s).
-Proof.
-intro. induction s.
-intros. inversion H. inversion H0. inversion H3. induction e.
-induction c.
-inversion H5.
-simpl. rewrite nil_substitution.
-induction i. inversion H5.
-simpl in H5. simpl. trivial.
-simpl in H5. simpl. trivial.
-simpl. simpl in H5. apply (closed_after_substitutions _ _ _ 0 _ 0). admit.
-split. apply (closed_after_substitutions _ _ _ 0 _ 0). inversion H2.
-Qed.
-
-Proposition krivine_grab_is_reduction: forall (s1: stack) (e1: environment) (c1 c2: list_instruction) (e2: environment) (s2: stack),
-reduce_one (state_translation c1 e1 s1) (state_translation c2 e2 s2) \/ (state_translation c2 e2 s2) = (state_translation c1 e1 s1) ->
-Some (c2, e2, s2) = one_step_krivine (Block Grab c1, e1, s1) ->
-correct_state (Block Grab c1) e1 s1 ->
-reduce_one (state_translation (Block Grab c1) e1 s1) (state_translation c2 e2 s2) \/ (state_translation c2 e2 s2) = (state_translation (Block Grab c1) e1 s1).
-Proof.
-intro. induction s1.
-intros. inversion H.
-intros. inversion H. simpl. simpl in H. inversion H. left.
-induction s2. inversion H0. simpl. inversion H1. inversion H5. inversion H8. simpl in H10.
-
-
-
-Qed.
-
-Proposition krivine_push_is_reduction: forall (e1: environment) (c0 c1 c2: list_instruction) (e2: environment) (s1 s2: stack),
-Some (c2, e2, s2) = one_step_krivine (Block (Push c0) c1, e1, s1) ->
-correct_state (Block (Push c0) c1) e1 s1 ->
-reduce_one (state_translation c2 e2 s2) (state_translation (Block (Push c0) c1) e1 s1) \/ (state_translation c2 e2 s2) = (state_translation (Block (Push c0) c1) e1 s1).
-Proof.
-intros. inversion H. simpl. induction e1.
-simpl. rewrite nil_substitution.
-induction s1. simpl. rewrite nil_substitution. rewrite nil_substitution. right. trivial.
-simpl. rewrite nil_substitution. rewrite nil_substitution.
-inversion H0. inversion H1. inversion H7. inversion H9. left. apply
-
-intro. induction e1.
-intros. inversion H. simpl. rewrite nil_substitution. induction s1.
-simpl. rewrite nil_substitution. rewrite nil_substitution. inversion H0. inversion H1. inversion H7. simpl in H9.
-induction c1. simpl. inversion H9. induction i. simpl in H9. inversion H9. simpl.
-simpl.
-assert (instruction_translation c1 = de_bruijn_substitution_list ((instruction_translation c0) :: nil) 0 (instruction_translation c1)).
-rewrite missing_variable_substitution. trivial. simpl in H9. simpl. trivial.
-assert (reduce_one
-  (application (lambda (instruction_translation c1))
-     (instruction_translation c0)) (de_bruijn_substitution_list ((instruction_translation c0) :: nil) 0 (lambda (instruction_translation c1))) -> reduce_one
-  (application (lambda (instruction_translation c1))
-     (instruction_translation c0)) (lambda (instruction_translation c1))).
-rewrite <- H10. trivial. apply H11.
-apply red_beta.
-Qed.
-
-Proposition krivine_access_ 0_is_identity: forall , state_translation ((Block (Access 0) c), (Env c0 e0 e), s)
-*)
-
-Lemma nil_env_size : forall (e: environment), 0 = env_size e -> e = Nil_env.
-Proof.
-intros. induction e.
-trivial. inversion H.
-Qed.
-
+(* Le th\u00e9or\u00e8me suivant est admis. Seul un des 4 cas \u00e0 \u00e9tudier a \u00e9t\u00e9 trait\u00e9, et il a \u00e9t\u00e9 s\u00e9par\u00e9 du reste sous forme de lemme. *)
 Lemma krivine_access_0_is_reduction : forall (e1: environment) (s1: stack) (e2 : environment) (s2 : stack) (c1 c2 : list_instruction),
 Some (c2, e2, s2) = one_step_krivine (Block (Access 0) c1, e1, s1) -> state_translation (Block (Access 0) c1) e1 s1 = state_translation c2 e2 s2.
 Proof.
@@ -683,65 +640,6 @@ intros.
 induction e1. inversion H.
 inversion H. induction s1; simpl; rewrite null_increase; trivial.
 Qed.
-(*
-Proposition de_bruijn_aux_translate : forall (e: environment) (n1 n2 p1 p2: nat), correct_env e -> env_size e >= n1 -> env_size e >= n2 -> n1 + p2 = n2 + p1 -> de_bruijn_aux n1 (environment_translation e) p1 = de_bruijn_aux n2 (environment_translation e) p2.
-Proof.
-intro. induction e.
-intros. inversion H. inversion H0. inversion H1. simpl. trivial.
-intros. assert (n1 = p1 \/ n1 > p1 \/ n1 < p1). omega. inversion H3.
-inversion H4. simpl. rewrite eq_branch_real_eq. rewrite eq_branch_real_eq. inversion H. inversion H7. rewrite no_change_increase. rewrite no_change_increase. trivial. inversion H. inversion H7. apply (closed_after_substitutions _ _ _ 0 _ 0).
-
-assert (forall (n p: nat), n = p -> de_bruijn_aux n (environment_translation (Env l e1 e2)) p = de_bruijn_aux n (environment_translation e2) p).
-intros. simpl. rewrite eq_branch_real_eq.
-Qed.
-
-
-Lemma krivine_access_Sn_is_reduction : forall (e1: environment) (s1: stack) (e2 : environment) (s2 : stack) (c2 c1: list_instruction) (n: nat),
-Some (c2, e2, s2) = one_step_krivine (Block (Access (S n)) c1, e1, s1) ->
-correct_state (Block (Access (S n)) c1) e1 s1 ->
-(Some (c2, e2, s2) = one_step_krivine (c1, e1, s1) ->
-       correct_state c1 e1 s1 ->
-       reduce_one (state_translation c1 e1 s1) (state_translation c2 e2 s2) \/
-       state_translation c1 e1 s1 = state_translation c2 e2 s2) ->
-(Some (c2, e2, s2) = one_step_krivine (Block (Access n) c1, e1, s1) ->
-      correct_state (Block (Access n) c1) e1 s1 ->
-      reduce_one (state_translation (Block (Access n) c1) e1 s1)
-        (state_translation c2 e2 s2) \/
-      state_translation (Block (Access n) c1) e1 s1 =
-      state_translation c2 e2 s2) ->
-reduce_one (state_translation (Block (Access (S n)) c1) e1 s1)
-  (state_translation c2 e2 s2) \/
-state_translation (Block (Access (S n)) c1) e1 s1 =
-state_translation c2 e2 s2.
-Proof.
-intros. inversion H. induction e1. inversion H4.
-inversion H. induction s1. simpl. inversion H0. inversion H3. inversion H10. inversion H12. assert (correct_state c2 e2 s2).
-apply (krivine_keeps_correct _ (Block (Access (S n)) c1) (Env l e1_1 e1_2) Nil_stack) . trivial. rewrite H. trivial. inversion H4 in H13. inversion H13. inversion H15. inversion H21. inversion H23.
-
-Proposition
-
-Qed.
-
-
-Lemma krivine_grab_is_reduction : forall (e1: environment) (s1: stack) (e2 : environment) (s2 : stack) (c2 c1 : list_instruction),
-Some (c2, e2, s2) = one_step_krivine (Block Grab c1, e1, s1) ->
-correct_state (Block Grab c1) e1 s1 ->
-reduce_one (state_translation (Block Grab c1) e1 s1)
-  (state_translation c2 e2 s2) \/
-state_translation (Block Grab c1) e1 s1 = state_translation c2 e2 s2.
-Proof.
-intro. induction s1.
-intros. inversion H.
-intros. inversion H. simpl. inversion H0. inversion H1. inversion H7. simpl in H9.
-assert (correct_state c2 e2 s2). apply (krivine_keeps_correct _ (Block Grab c1) e1 (St l e s1)). trivial. rewrite H. trivial.
-
-
-left. apply red_beta.
-assert (state_translation c1 (Env l e e1) s1 = state_translation c2 e2 s2). inversion H. trivial.
-
-
-Qed.
-*)
 
 Theorem krivine_step_is_reduction: forall (c1 c2: list_instruction) (e1 e2: environment) (s1 s2: stack), Some (c2, e2, s2) = one_step_krivine (c1, e1, s1) -> correct_state c1 e1 s1 -> reduce_one (state_translation c1 e1 s1) (state_translation c2 e2 s2) \/ state_translation c1 e1 s1 = state_translation c2 e2 s2.
 Proof.
@@ -755,33 +653,15 @@ admit.
 admit.
 Qed.
 
-(*
-intro. induction c1. intros. inversion H.
-assert (forall (e1: environment) (s1: stack) (e2 : environment) (s2 : stack) (c2 : list_instruction),
-Some (c2, e2, s2) = one_step_krivine (Block i c1, e1, s1) ->
-correct_state (Block i c1) e1 s1 ->
-reduce_one (state_translation (Block i c1) e1 s1)
-  (state_translation c2 e2 s2) \/
-state_translation (Block i c1) e1 s1 = state_translation c2 e2 s2).
-induction i. induction n. intro. induction e1. intros. inversion H.
-intros. inversion H. simpl. induction s1; simpl; rewrite null_increase; right; trivial.
-intro. induction e1. intros. inversion H.
-intro. induction s1. intro. induction e2. intros. assert (correct_state c2 Nil_env s2).
-apply (krivine_keeps_correct _ (Block (Access (S n)) c1) (Env l e1_1 e1_2) Nil_stack). trivial. rewrite H. trivial.
-inversion H. simpl. inversion H in H1. simpl in H1. inversion H1. inversion H2. inversion H11. inversion H13.
-intro. induction s2. intros. inversion H. simpl. induction n. rewrite eq_branch_real_eq. rewrite eq_branch_real_eq. rewrite null_increase. rewrite no_change_increase. right. trivial.
-inversion H0.
-
-
-Qed.
-*)
-
+(* On d\u00e9finit la propri\u00e9t\u00e9 inductive qui indique qu'un \u00e9tat a \u00e9t\u00e9 obtenu apr\u00e8s un nombre arbitraire de 
+pas de calcul \u00e0 partir d'un autre \u00e9tat. *)
 Inductive krivine_steps: list_instruction -> list_instruction -> environment ->
  environment -> stack -> stack -> Prop :=
 | zero_step: forall (c1 c2: list_instruction) (e1 e2: environment) (s1 s2: stack), c1 = c2 -> e1 = e2 -> s1 = s2 -> krivine_steps c1 c2 e1 e2 s1 s2
 | any_step: forall (c1 c2 c3: list_instruction) (e1 e2 e3: environment) (s1 s2 s3: stack), Some (c2, e2, s2) = one_step_krivine (c1, e1, s1) -> krivine_steps c2 c3 e2 e3 s2 s3 -> krivine_steps c1 c3 e1 e3 s1 s3
 .
 
+(* on d\u00e9montre les propri\u00e9t\u00e9 finales de la machine de krivine. *)
 Lemma krivine_steps_are_reductions : forall (c1 c2: list_instruction) (e1 e2: environment) (s1 s2: stack), krivine_steps c1 c2 e1 e2 s1 s2 -> correct_state c1 e1 s1 -> reduce_any (state_translation c1 e1 s1) (state_translation c2 e2 s2).
 Proof.
 intros. induction H.
