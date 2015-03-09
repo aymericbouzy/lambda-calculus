@@ -260,14 +260,19 @@ intro. induction l. intros. simpl.
 
 Qed.*)
 
-Fixpoint de_bruijn_substitution_list (l: list term) (p: nat) (t: term) : term :=
+Fixpoint de_bruijn_substitution_list (l: list term) (i p: nat) (t: term) : term :=
 match t with
-| var x => de_bruijn_aux x l p p
-| lambda t => lambda (de_bruijn_substitution_list l (S p) t)
-| application t u => application (de_bruijn_substitution_list l p t) (de_bruijn_substitution_list l p u)
+| var x => de_bruijn_aux x l p i
+| lambda t => lambda (de_bruijn_substitution_list l (S i) (S p) t)
+| application t u => application (de_bruijn_substitution_list l i p t) (de_bruijn_substitution_list l i p u)
 end.
 
-Proposition nil_substitution : forall t:term, forall p:nat, (de_bruijn_substitution_list nil p t) = t.
+Proposition test_substitution : de_bruijn_substitution_list (var 4 :: lambda (application (var 0) (var 3)) :: application (var 2) (lambda (var 0)) :: var 3 :: nil) 2 0 (application (lambda (application (var 4) (var 5))) (var 2)) = application (lambda (application (lambda (application (var 0) (var 4))) (application (var 3) (lambda (var 0))))) (var 4).
+Proof.
+simpl. trivial.
+Qed.
+
+Proposition nil_substitution : forall t:term, forall i p:nat, (de_bruijn_substitution_list nil i p t) = t.
 Proof.
 intro. induction t.
 intros. simpl. trivial. 
@@ -275,14 +280,14 @@ intros. simpl. rewrite IHt. trivial.
 intros. simpl. rewrite IHt1, IHt2. trivial.
 Qed.
 
-Proposition missing_variable_substitution : forall l: list term, forall t:term, forall p:nat, closed p t -> (de_bruijn_substitution_list l p t) = t.
+Proposition missing_variable_substitution : forall l: list term, forall t:term, forall i p:nat, closed i t -> (de_bruijn_substitution_list l i p t) = t.
 Proof.
 intro. induction l. 
 intros. rewrite nil_substitution. trivial.
 intro. induction t.
 intros. simpl. simpl in H. rewrite neq_branch_real_neq. rewrite de_bruijn_aux_terminate. trivial.
 simpl in H. omega. omega.
-intros. simpl. rewrite (IHt (S p)). trivial. simpl in H. trivial.
+intros. simpl. rewrite (IHt (S i)). trivial. simpl in H. trivial.
 intros. simpl. rewrite IHt1, IHt2. trivial. simpl in H. case H.
 intros. trivial. simpl in H. case H.
 intros. trivial.
@@ -313,7 +318,7 @@ simpl. intros. apply IHt. omega. omega.
 intros. simpl. split. apply IHt1. trivial. trivial. apply IHt2. trivial. trivial.
 Qed.
 
-Lemma substitution_is_identity_when_absent_var : forall (t u: term) (n: nat), absent_var n t -> de_bruijn_substitution_list (u :: nil) n t = t.
+Lemma substitution_is_identity_when_absent_var : forall (t u: term) (n p: nat), absent_var n t -> de_bruijn_substitution_list (u :: nil) n p t = t.
 Proof.
 intro. induction t.
 intros. simpl. simpl in H. rewrite neq_branch_real_neq. trivial. omega.
@@ -335,34 +340,22 @@ inversion H2. rewrite eq_branch_real_eq. apply absent_vars_after_increase. omega
 rewrite neq_branch_real_neq. apply (IHl _ p). right. trivial. trivial. inversion H1. trivial. trivial.
 Qed.
 
-Proposition successive_substitutions : forall l:list term, forall t:term, forall p: nat, forall u:term, closed_list p (u :: l) -> de_bruijn_substitution_list (u :: nil) p (de_bruijn_substitution_list l (S p) t) = de_bruijn_substitution_list (u :: l) p t.
+Proposition successive_substitutions : forall l:list term, forall t:term, forall i p: nat, forall u:term, closed_list (i - p) (u :: l) -> p <= i -> de_bruijn_substitution_list (u :: nil) i p (de_bruijn_substitution_list l (S i) p t) = de_bruijn_substitution_list (u :: l) i p t.
 Proof.
 intro.
 induction l.
 intros. rewrite nil_substitution. trivial.
 intro. induction t.
 intros.
-assert (n = p \/ n = S p \/ n > S p \/ n < p). omega. inversion H0.
-simpl. rewrite (eq_branch_real_eq n p). rewrite neq_branch_real_neq. rewrite de_bruijn_aux_terminate. simpl. rewrite eq_branch_real_eq. trivial. trivial. omega. omega. trivial.
-inversion H1. simpl. rewrite (eq_branch_real_eq n (S p)). rewrite neq_branch_real_neq. rewrite eq_branch_real_eq.
-rewrite substitution_is_identity_when_absent_var. apply absent_vars_after_increase. omega. omega.
-
-
-rewrite substitution_is_identity_when_absent_var. trivial.
-assert (increase_var a p 0 = de_bruijn_aux (S i) (a :: nil) p (S i)). simpl. rewrite eq_branch_real_eq. trivial. trivial. rewrite H5.
-apply (absent_var_after_aux _ _ i).
-
-
- 
-apply absent_vars_after_increase. omega. omega.
-apply (absent_vars_in_closed _ p). apply (increase_var_keeps_close _ _ _ i). inversion H. inversion H6. trivial. omega. omega. trivial.
-intro. rewrite neq_branch_real_neq. rewrite neq_branch_real_neq.
-case H2. intro. inversion H. inversion H5. rewrite substitution_is_identity_when_absent_var. trivial.
-apply (absent_var_after_aux l _ i). omega. omega. trivial.
-intro. rewrite de_bruijn_aux_terminate. simpl. rewrite neq_branch_real_neq. trivial. omega. omega. omega. omega.
-intros. simpl. rewrite IHt. trivial. apply closed_list_implication. trivial.
-intros. simpl. rewrite IHt1, IHt2. trivial. trivial. trivial.
+assert (n = i \/ n = S i \/ n > S i \/ n < i). omega. inversion H1.
+simpl. rewrite (eq_branch_real_eq n i). rewrite neq_branch_real_neq. rewrite de_bruijn_aux_terminate. simpl. rewrite eq_branch_real_eq. trivial. trivial. omega. omega. trivial.
+inversion H2. simpl. rewrite (eq_branch_real_eq n (S i)). rewrite neq_branch_real_neq.
+rewrite substitution_is_identity_when_absent_var. trivial. apply (absent_vars_in_closed _ i). apply (increase_var_keeps_close _ _ _ (i - p)). inversion H. inversion H5. trivial. omega. omega. omega. omega. trivial.
+simpl. rewrite neq_branch_real_neq. rewrite neq_branch_real_neq. rewrite substitution_is_identity_when_absent_var. trivial. apply (absent_var_after_aux _ _ (i - p)). left. omega. omega. inversion H. inversion H5. trivial. omega. omega.
+intros. simpl. rewrite IHt. trivial. assert (S i - S p = i - p). omega. rewrite H1. trivial. omega.
+intros. simpl. rewrite IHt1. rewrite IHt2. trivial. trivial. trivial. trivial. trivial.
 Qed.
+
 (*
 Proposition whatever : forall (l1 l2: list term) (t1 t2 t3: term) (n: nat), de_bruijn_substitution_list (de_bruijn_substitution_list l2 n t2 :: l1) n t1 = de_bruijn_substitution_list ((de_bruijn_substitution_list l2 n t2) :: nil) n (de_bruijn_substitution_list l1 (S n) t1).
 Proof.
